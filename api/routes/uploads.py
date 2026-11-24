@@ -2,22 +2,24 @@ import datetime
 import hashlib
 from flask import Blueprint, request, jsonify
 from database import get_connection
+from security import get_current_user, require_auth
 from services.gemini_service import analyze_dress_image_url
 import json
 
 uploads_bp = Blueprint('uploads_bp', __name__)
 
 @uploads_bp.route('/classify', methods=['POST'])
+@require_auth
 def classify():
     data = request.get_json()
     if not data:
         return jsonify({'error': 'Missing JSON body'}), 400
 
     image_url = data.get('image_url')
-    username = data.get('username')
+    username = get_current_user().username
 
-    if not image_url or not username:
-        return jsonify({'error': 'image_url or username missing'}), 400
+    if not image_url:
+        return jsonify({'error': 'image_url missing'}), 400
 
     # MD5 hash of URL to check for duplicate (since we don't have file bytes)
     image_hash = hashlib.md5(image_url.encode('utf-8')).hexdigest()
@@ -58,11 +60,11 @@ def classify():
 
     return jsonify({'position': position, 'style': style, 'color': color, 'image_url': image_url})
 
-@uploads_bp.route('/history/<username>', methods=['GET'])
-def get_history(username):
+@uploads_bp.route('/history', methods=['GET'])
+@require_auth
+def get_history():
+    username = get_current_user().username
     try:
-        print("USERNAME:", username)
-
         conn = get_connection()
         cur = conn.cursor()
 
@@ -78,8 +80,6 @@ def get_history(username):
         )
 
         uploads = cur.fetchall()
-
-        print("UPLOADS:", uploads)
 
         cur.close()
         conn.close()
@@ -107,30 +107,34 @@ def get_history(username):
         }), 500
 
 @uploads_bp.route('/delete_upload', methods=['POST'])
+@require_auth
 def delete_upload():
     data = request.get_json()
     upload_id = data.get('upload_id')
+    username = get_current_user().username
 
     try:
         conn = get_connection()
         cur = conn.cursor()
-        cur.execute("DELETE FROM uploads WHERE id = %s", (upload_id,))
+        cur.execute("DELETE FROM uploads WHERE id = %s AND username = %s", (upload_id, username))
+        deleted = cur.rowcount
         conn.commit()
         cur.close()
         conn.close()
+        if deleted == 0:
+            # Not found and not owned look the same, so ids of other users' uploads are not revealed.
+            return jsonify({'status': 'error', 'message': 'Upload not found'}), 404
         return jsonify({'status': 'success'})
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)})
 
 
 @uploads_bp.route('/get-suggestions', methods=['POST'])
+@require_auth
 def get_suggestions():
     data = request.json
     destination = data['destination']
-    username = data.get('username')
-
-    if not username:
-        return jsonify({'error': 'Username is required'}), 400
+    username = get_current_user().username
 
     conn = get_connection()
     cur = conn.cursor()
@@ -154,10 +158,11 @@ def get_suggestions():
 
 
 @uploads_bp.route('/toggle_favorite', methods=['POST'])
+@require_auth
 def toggle_favorite():
     data = request.get_json()
     upload_id = data.get('upload_id')
-    username = data.get('username')
+    username = get_current_user().username
 
     try:
         conn = get_connection()

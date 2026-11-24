@@ -97,7 +97,7 @@ function App() {
             path="/upload"
             element={
               user ? (
-                <Upload username={user} />
+                <Upload />
               ) : (
                 <Navigate to="/login" />
               )

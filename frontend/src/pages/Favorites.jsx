@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { apiUrl } from '../lib/api';
+import { apiFetch } from '../lib/api';
 import './History.css'; // Reusing the same CSS for consistency
 import { Helmet } from "react-helmet-async";
 export default function Favorites({ username }) {
@@ -11,7 +11,7 @@ export default function Favorites({ username }) {
 
   const fetchFavorites = async () => {
     try {
-      const res = await fetch(apiUrl(`/history/${username}`));
+      const res = await apiFetch('/history');
       const data = await res.json();
       // Filter only favorite uploads
       const favorites = data.filter(upload => upload.favorite);
@@ -23,10 +23,10 @@ export default function Favorites({ username }) {
 
   const handleToggleFavorite = async (uploadId) => {
     try {
-      const res = await fetch(apiUrl('/toggle_favorite'), {
+      const res = await apiFetch('/toggle_favorite', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ upload_id: uploadId, username: username }),
+        body: JSON.stringify({ upload_id: uploadId }),
       });
 
       const result = await res.json();
@@ -45,7 +45,7 @@ export default function Favorites({ username }) {
   };
 
   const handleDelete = async (uploadId) => {
-    const res = await fetch(apiUrl('/delete_upload'), {
+    const res = await apiFetch('/delete_upload', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ upload_id: uploadId }),

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import './Suggestions.css';
-import { apiUrl } from '../lib/api';
+import { apiFetch } from '../lib/api';
 import { Helmet } from "react-helmet-async";
 
 export default function Suggestions({ username }) {
@@ -20,10 +20,10 @@ export default function Suggestions({ username }) {
     setMessage('');
     
     try {
-      const res = await fetch(apiUrl('/get-suggestions'), {
+      const res = await apiFetch('/get-suggestions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ destination, username })
+        body: JSON.stringify({ destination })
       });
 
       const data = await res.json();
