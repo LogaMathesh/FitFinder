@@ -23,7 +23,7 @@ export default function Login({ onLogin }) {
       const data = await res.json();
       if (res.ok) {
         setMessage('Login successful!');
-        setTimeout(() => onLogin(data.user), 1000);
+        setTimeout(() => onLogin({ user: data.user, token: data.token }), 1000);
       } else {
         setMessage(data.error || 'Login failed');
       }
