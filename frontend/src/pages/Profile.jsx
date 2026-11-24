@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import './Profile.css';
-import { apiUrl } from '../lib/api';
+import { apiFetch } from '../lib/api';
 import { BadgeIndianRupee, Ruler, Save, Shirt, Sparkles, User } from 'lucide-react';
 import { Helmet } from "react-helmet-async";
 
@@ -17,7 +17,7 @@ export default function Profile({ username }) {
   useEffect(() => {
     const fetchProfile = async () => {
       try {
-        const response = await fetch(apiUrl(`/profile?username=${encodeURIComponent(username)}`));
+        const response = await apiFetch('/profile');
         if (response.ok) {
           const data = await response.json();
           setProfile(data);
@@ -45,12 +45,12 @@ export default function Profile({ username }) {
     setMessage('');
 
     try {
-      const response = await fetch(apiUrl('/profile'), {
+      const response = await apiFetch('/profile', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ ...profile, username })
+        body: JSON.stringify(profile)
       });
 
       if (response.ok) {

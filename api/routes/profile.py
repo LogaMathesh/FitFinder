@@ -1,18 +1,18 @@
 from flask import Blueprint, request, jsonify
 from database import get_connection
+from security import get_current_user, require_auth
 
 profile_bp = Blueprint('profile_bp', __name__)
 
 @profile_bp.route('/profile', methods=['GET', 'POST', 'OPTIONS'])
+@require_auth
 def handle_profile():
     if request.method == 'OPTIONS':
         return jsonify({}), 200
 
-    if request.method == 'GET':
-        username = request.args.get('username')
-        if not username:
-            return jsonify({'error': 'Username is required'}), 400
+    username = get_current_user().username
 
+    if request.method == 'GET':
         conn = get_connection()
         cur = conn.cursor()
         try:
@@ -44,10 +44,9 @@ def handle_profile():
 
     elif request.method == 'POST':
         data = request.get_json()
-        if not data or not data.get('username'):
-            return jsonify({'error': 'Username is required'}), 400
+        if not data:
+            return jsonify({'error': 'Missing JSON body'}), 400
 
-        username = data.get('username')
         gender = data.get('gender', '')
         budget_level = data.get('budget_level', '')
         sizes = data.get('sizes', '')
