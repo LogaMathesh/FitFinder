@@ -1,11 +1,13 @@
 from flask import Blueprint, request, jsonify
 from services.gemini_service import suggest_matching_items
 from database import get_connection
+from security import get_current_user, require_auth
 
 # Create blueprint for chatbot routes
 chatbot_bp = Blueprint('chatbot', __name__)
 
 @chatbot_bp.route('/chatbot/query', methods=['POST'])
+@require_auth
 def chatbot_query():
     """Query chatbot for similar images"""
     try:
@@ -13,18 +15,15 @@ def chatbot_query():
         if not data:
             return jsonify({'error': 'No JSON data provided'}), 400
         
-        user_id = data.get('user_id')
+        username = get_current_user().username
         query_text = data.get('query', '').strip()
-        
-        if not user_id:
-            return jsonify({'error': 'User ID required'}), 400
         
         if not query_text:
             return jsonify({'error': 'Query text required'}), 400
         
         conn = get_connection()
         cur = conn.cursor()
-        cur.execute("SELECT image_path, style, color, position, gemini_metadata FROM uploads WHERE username = %s", (user_id,))
+        cur.execute("SELECT image_path, style, color, position, gemini_metadata FROM uploads WHERE username = %s", (username,))
         rows = cur.fetchall()
         cur.close()
         conn.close()
