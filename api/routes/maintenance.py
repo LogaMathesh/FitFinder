@@ -1,11 +1,13 @@
 import json
 from flask import Blueprint, request, jsonify
 from database import get_connection
+from security import require_admin
 from services.gemini_service import analyze_dress_image_url
 
 maintenance_bp = Blueprint('maintenance_bp', __name__)
 
 @maintenance_bp.route('/check-duplicates', methods=['GET'])
+@require_admin
 def check_duplicates():
     conn = get_connection()
     cur = conn.cursor()
@@ -34,6 +36,7 @@ def check_duplicates():
 
 
 @maintenance_bp.route('/clean-duplicates', methods=['POST'])
+@require_admin
 def clean_duplicates():
     conn = get_connection()
     cur = conn.cursor()
@@ -61,21 +64,26 @@ def clean_duplicates():
 
 
 @maintenance_bp.route('/index-existing-images', methods=['POST'])
+@require_admin
 def index_existing_images():
-    """Analyze all existing images for a user that are missing gemini_metadata"""
+    """Admin only: analyze a user's existing images that are missing gemini_metadata.
+
+    The body's username names the TARGET of the admin action. The caller's
+    identity and admin rights come from the token (require_admin).
+    """
     conn = get_connection()
     cur = conn.cursor()
     try:
         data = request.get_json()
-        username = data.get('username')
+        target_username = data.get('username')
         
-        if not username:
+        if not target_username:
             return jsonify({'error': 'Username required'}), 400
         
         # Only fetch images that haven't been analyzed by Gemini yet
         cur.execute(
             "SELECT id, image_path FROM uploads WHERE username = %s AND gemini_metadata IS NULL",
-            (username,)
+            (target_username,)
         )
         uploads = cur.fetchall()
         

@@ -110,3 +110,17 @@ def require_auth(view):
 
 def get_current_user():
     return g.current_user
+
+
+def require_admin(view):
+    """require_auth, plus the token's username must be listed in ADMIN_USERNAMES.
+
+    An empty ADMIN_USERNAMES means nobody is an admin (the routes are disabled).
+    """
+    @functools.wraps(view)
+    def check_admin(*args, **kwargs):
+        if get_current_user().username not in current_app.config.get("ADMIN_USERNAMES", []):
+            return jsonify({"error": "forbidden", "message": "Admin access required."}), 403
+        return view(*args, **kwargs)
+
+    return require_auth(check_admin)
