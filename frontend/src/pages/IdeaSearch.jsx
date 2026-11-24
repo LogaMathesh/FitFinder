@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import './IdeaSearch.css';
-import { apiUrl } from '../lib/api';
+import { apiFetch } from '../lib/api';
 import { Helmet } from "react-helmet-async";
 
 export default function IdeaSearch({ user }) {
@@ -22,10 +22,10 @@ export default function IdeaSearch({ user }) {
     setQueryUsed('');
 
     try {
-      const response = await fetch(apiUrl('/search-ideas'), {
+      const response = await apiFetch('/search-ideas', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ idea, username: user })
+        body: JSON.stringify({ idea })
       });
 
       const data = await response.json();
@@ -61,11 +61,10 @@ export default function IdeaSearch({ user }) {
     }));
 
     try {
-        await fetch(apiUrl('/interact'), {
+        await apiFetch('/interact', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                username: user,
                 item: item,
                 type: type
             })

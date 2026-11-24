@@ -1,18 +1,20 @@
 from flask import Blueprint, request, jsonify
 from database import get_connection
+from security import get_current_user, require_auth
 
 interactions_bp = Blueprint('interactions_bp', __name__)
 
 @interactions_bp.route('/interact', methods=['POST', 'OPTIONS'])
+@require_auth
 def handle_interaction():
     if request.method == 'OPTIONS':
         return jsonify({}), 200
 
     data = request.get_json()
-    if not data or not data.get('username'):
-        return jsonify({'error': 'Username is required'}), 400
+    if not data:
+        return jsonify({'error': 'Missing JSON body'}), 400
 
-    username = data.get('username')
+    username = get_current_user().username
     item = data.get('item', {})
     interaction_type = data.get('type') # 'like', 'dislike', 'save'
 

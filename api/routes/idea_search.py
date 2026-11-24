@@ -7,6 +7,7 @@ import google.generativeai as genai
 import requests
 from config import Config
 from database import get_connection
+from security import get_current_user, require_auth
 from prompts.gemini_prompts import SMART_FASHION_SEARCH_PROMPT
 try:
     from serpapi import GoogleSearch
@@ -625,13 +626,14 @@ def rerank_results(results, idea, preference_summary, occasion_priority=None):
 
 
 @idea_search_bp.route('/search-ideas', methods=['POST'])
+@require_auth
 def search_ideas():
     data = request.get_json()
     if not data:
         return jsonify({'error': 'Invalid request'}), 400
         
     idea = data.get('idea')
-    username = data.get('username')
+    username = get_current_user().username
     debug_no_serpapi = data.get('debug_no_serpapi') is True
     
     if not idea:
