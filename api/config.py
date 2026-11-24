@@ -7,6 +7,8 @@ class Config:
     ENV = os.environ.get("FLASK_ENV", "production")
     DEBUG = os.environ.get("FLASK_DEBUG", "0") == "1"
     SECRET_KEY = os.environ.get("SECRET_KEY")
+    JWT_SECRET_KEY = os.environ.get("JWT_SECRET_KEY")
+    JWT_EXPIRES_MINUTES = int(os.environ.get("JWT_EXPIRES_MINUTES", 60))
     MAX_CONTENT_LENGTH = int(os.environ.get("MAX_CONTENT_LENGTH", 8 * 1024 * 1024))
     FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:5173")
     CORS_ORIGINS = [

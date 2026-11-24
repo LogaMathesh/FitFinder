@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
 from database import get_connection
+from security import create_access_token, token_lifetime_seconds
 
 auth_bp = Blueprint('auth_bp', __name__)
 
@@ -16,9 +17,18 @@ def signup():
         conn = get_connection()
         cur = conn.cursor()
         password_hash = generate_password_hash(password)
-        cur.execute("INSERT INTO users (username, password_hash) VALUES (%s, %s)", (username, password_hash))
+        cur.execute(
+            "INSERT INTO users (username, password_hash) VALUES (%s, %s) RETURNING id",
+            (username, password_hash),
+        )
+        user_id = cur.fetchone()[0]
         conn.commit()
-        return jsonify({"message": "Signup successful", "user": username}), 200
+        return jsonify({
+            "message": "Signup successful",
+            "user": username,
+            "token": create_access_token(user_id, username),
+            "expires_in": token_lifetime_seconds(),
+        }), 200
     except Exception as e:
         if conn:
             conn.rollback()
@@ -41,11 +51,16 @@ def login():
     try:
         conn = get_connection()
         cur = conn.cursor()
-        cur.execute("SELECT password_hash FROM users WHERE username = %s", (username,))
+        cur.execute("SELECT id, password_hash FROM users WHERE username = %s", (username,))
         result = cur.fetchone()
 
-        if result and check_password_hash(result[0], password):
-            return jsonify({"message": "Login successful", "user": username}), 200
+        if result and check_password_hash(result[1], password):
+            return jsonify({
+                "message": "Login successful",
+                "user": username,
+                "token": create_access_token(result[0], username),
+                "expires_in": token_lifetime_seconds(),
+            }), 200
         else:
             return jsonify({"error": "Invalid credentials"}), 401
     except Exception as e:
