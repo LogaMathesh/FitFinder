@@ -1,7 +1,11 @@
-from flask import Blueprint, request, jsonify
+import logging
+from flask import Blueprint, jsonify
 from services.gemini_service import suggest_matching_items
 from database import get_connection
+from request_utils import json_object
 from security import get_current_user, require_auth
+
+logger = logging.getLogger(__name__)
 
 # Create blueprint for chatbot routes
 chatbot_bp = Blueprint('chatbot', __name__)
@@ -10,24 +14,26 @@ chatbot_bp = Blueprint('chatbot', __name__)
 @require_auth
 def chatbot_query():
     """Query chatbot for similar images"""
+    data = json_object()
+    if data is None:
+        return jsonify({'error': 'No JSON data provided'}), 400
+
+    username = get_current_user().username
+    query_text = data.get('query', '')
+    if not isinstance(query_text, str) or not query_text.strip():
+        return jsonify({'error': 'Query text required'}), 400
+    query_text = query_text.strip()
+
     try:
-        data = request.get_json()
-        if not data:
-            return jsonify({'error': 'No JSON data provided'}), 400
-        
-        username = get_current_user().username
-        query_text = data.get('query', '').strip()
-        
-        if not query_text:
-            return jsonify({'error': 'Query text required'}), 400
-        
         conn = get_connection()
-        cur = conn.cursor()
-        cur.execute("SELECT image_path, style, color, position, gemini_metadata FROM uploads WHERE username = %s", (username,))
-        rows = cur.fetchall()
-        cur.close()
-        conn.close()
-        
+        try:
+            cur = conn.cursor()
+            cur.execute("SELECT image_path, style, color, position, gemini_metadata FROM uploads WHERE username = %s", (username,))
+            rows = cur.fetchall()
+            cur.close()
+        finally:
+            conn.close()
+
         wardrobe_items = []
         for r in rows:
             url = r[0]
@@ -50,7 +56,7 @@ def chatbot_query():
 
         # Ask Gemini to rank items
         matched_urls = suggest_matching_items(query_text, wardrobe_items)
-        
+
         formatted_results = []
         for url in matched_urls:
             # find style, color for this url
@@ -62,15 +68,16 @@ def chatbot_query():
                     'color': item['color'],
                     'score': 1.0 # Placeholder since Gemini doesn't return exact distances
                 })
-        
+
         return jsonify({
             'results': formatted_results,
             'query': query_text,
             'count': len(formatted_results)
         }), 200
-        
-    except Exception as e:
-        return jsonify({'error': f'Query failed: {str(e)}'}), 500
+
+    except Exception:
+        logger.exception("Chatbot query failed")
+        return jsonify({'error': 'Query failed. Please try again.'}), 500
 
 @chatbot_bp.route('/chatbot/status', methods=['GET'])
 def chatbot_status():

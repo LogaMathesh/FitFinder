@@ -1,5 +1,6 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, jsonify
 import json
+import logging
 import re
 from collections import Counter, defaultdict
 from urllib.parse import parse_qsl, quote, urlencode, urlparse, urlunparse
@@ -7,12 +8,15 @@ import google.generativeai as genai
 import requests
 from config import Config
 from database import get_connection
+from request_utils import json_object
 from security import get_current_user, require_auth
 from prompts.gemini_prompts import SMART_FASHION_SEARCH_PROMPT
 try:
     from serpapi import GoogleSearch
 except ImportError:
     GoogleSearch = None
+
+logger = logging.getLogger(__name__)
 
 idea_search_bp = Blueprint('idea_search_bp', __name__)
 
@@ -628,15 +632,15 @@ def rerank_results(results, idea, preference_summary, occasion_priority=None):
 @idea_search_bp.route('/search-ideas', methods=['POST'])
 @require_auth
 def search_ideas():
-    data = request.get_json()
-    if not data:
+    data = json_object()
+    if data is None:
         return jsonify({'error': 'Invalid request'}), 400
         
     idea = data.get('idea')
     username = get_current_user().username
     debug_no_serpapi = data.get('debug_no_serpapi') is True
     
-    if not idea:
+    if not isinstance(idea, str) or not idea.strip():
         return jsonify({'error': 'No idea provided'}), 400
         
     try:
@@ -801,10 +805,10 @@ def search_ideas():
             results_dict = GoogleSearch(params).get_dict()
 
         if results_dict.get("error"):
+            logger.error("Shopping search provider error: %s", results_dict["error"])
             return jsonify({
                 'error': 'shopping_search_failed',
-                'message': 'The shopping search provider could not complete this search.',
-                'details': str(results_dict["error"])
+                'message': 'The shopping search provider could not complete this search.'
             }), 502
         
         shopping_results = results_dict.get("shopping_results", [])
@@ -836,10 +840,11 @@ def search_ideas():
             'results': clean_results
         }), 200
         
-    except Exception as e:
+    except Exception:
+        logger.exception("Idea search failed")
         try:
             cur.close()
             conn.close()
         except Exception:
             pass
-        return jsonify({'error': 'Idea search pipeline failed', 'details': str(e)}), 500
+        return jsonify({'error': 'Idea search pipeline failed'}), 500

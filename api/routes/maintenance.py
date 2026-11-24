@@ -1,17 +1,31 @@
 import json
-from flask import Blueprint, request, jsonify
+import logging
+from flask import Blueprint, jsonify
 from database import get_connection
+from request_utils import json_object
 from security import require_admin
 from services.gemini_service import analyze_dress_image_url
 
+logger = logging.getLogger(__name__)
+
 maintenance_bp = Blueprint('maintenance_bp', __name__)
+
+
+def _close(conn, cur):
+    if cur:
+        cur.close()
+    if conn:
+        conn.close()
+
 
 @maintenance_bp.route('/check-duplicates', methods=['GET'])
 @require_admin
 def check_duplicates():
-    conn = get_connection()
-    cur = conn.cursor()
+    conn = None
+    cur = None
     try:
+        conn = get_connection()
+        cur = conn.cursor()
         cur.execute("""
             SELECT image_path, COUNT(*) as count
             FROM uploads
@@ -28,24 +42,26 @@ def check_duplicates():
             })
         else:
             return jsonify({'status': 'clean', 'message': 'No duplicates found'})
-    except Exception as e:
-        return jsonify({'status': 'error', 'message': str(e)}), 500
+    except Exception:
+        logger.exception("Checking duplicates failed")
+        return jsonify({'status': 'error', 'message': 'Checking duplicates failed'}), 500
     finally:
-        cur.close()
-        conn.close()
+        _close(conn, cur)
 
 
 @maintenance_bp.route('/clean-duplicates', methods=['POST'])
 @require_admin
 def clean_duplicates():
-    conn = get_connection()
-    cur = conn.cursor()
+    conn = None
+    cur = None
     try:
+        conn = get_connection()
+        cur = conn.cursor()
         cur.execute("""
-            DELETE FROM uploads 
+            DELETE FROM uploads
             WHERE id NOT IN (
-                SELECT MAX(id) 
-                FROM uploads 
+                SELECT MAX(id)
+                FROM uploads
                 GROUP BY image_path
             )
         """)
@@ -55,12 +71,13 @@ def clean_duplicates():
             'status': 'success',
             'message': f'Removed {deleted_count} duplicate entries'
         })
-    except Exception as e:
-        conn.rollback()
-        return jsonify({'status': 'error', 'message': str(e)}), 500
+    except Exception:
+        if conn:
+            conn.rollback()
+        logger.exception("Cleaning duplicates failed")
+        return jsonify({'status': 'error', 'message': 'Cleaning duplicates failed'}), 500
     finally:
-        cur.close()
-        conn.close()
+        _close(conn, cur)
 
 
 @maintenance_bp.route('/index-existing-images', methods=['POST'])
@@ -71,25 +88,26 @@ def index_existing_images():
     The body's username names the TARGET of the admin action. The caller's
     identity and admin rights come from the token (require_admin).
     """
-    conn = get_connection()
-    cur = conn.cursor()
+    data = json_object()
+    target_username = data.get('username') if data is not None else None
+    if not isinstance(target_username, str) or not target_username:
+        return jsonify({'error': 'Username required'}), 400
+
+    conn = None
+    cur = None
     try:
-        data = request.get_json()
-        target_username = data.get('username')
-        
-        if not target_username:
-            return jsonify({'error': 'Username required'}), 400
-        
+        conn = get_connection()
+        cur = conn.cursor()
         # Only fetch images that haven't been analyzed by Gemini yet
         cur.execute(
             "SELECT id, image_path FROM uploads WHERE username = %s AND gemini_metadata IS NULL",
             (target_username,)
         )
         uploads = cur.fetchall()
-        
+
         indexed_count = 0
         errors = []
-        
+
         for upload_id, image_url in uploads:
             try:
                 metadata = analyze_dress_image_url(image_url)
@@ -104,18 +122,19 @@ def index_existing_images():
                 )
                 conn.commit()
                 indexed_count += 1
-            except Exception as e:
-                errors.append(f"Failed to analyze {image_url}: {str(e)}")
-        
+            except Exception:
+                logger.exception("Indexing upload %s failed", upload_id)
+                errors.append(f"Failed to analyze upload {upload_id}")
+
         return jsonify({
             'message': f'Analyzed {indexed_count} images for Gemini Chatbot',
             'indexed_count': indexed_count,
             'total_pending': len(uploads),
             'errors': errors
         }), 200
-        
-    except Exception as e:
-        return jsonify({'error': 'Database error', 'details': str(e)}), 500
+
+    except Exception:
+        logger.exception("Indexing existing images failed")
+        return jsonify({'error': 'Indexing failed'}), 500
     finally:
-        cur.close()
-        conn.close()
+        _close(conn, cur)

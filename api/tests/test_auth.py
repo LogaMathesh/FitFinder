@@ -179,8 +179,9 @@ def test_duplicate_signup_is_409_without_database_details(client, db):
     {"username": "dave", "password": ""},
     {"username": 123, "password": DEFAULT_PASSWORD},
     {"username": "dave", "password": ["not", "a", "string"]},
+    {"username": "d" * 256, "password": DEFAULT_PASSWORD},
 ], ids=["empty", "no password", "no username", "blank username", "blank password",
-        "numeric username", "list password"])
+        "numeric username", "list password", "username too long"])
 @pytest.mark.parametrize("path", ["/signup", "/login"])
 def test_signup_and_login_reject_bad_input_with_400(client, db, path, body):
     res = client.post(path, json=body)
