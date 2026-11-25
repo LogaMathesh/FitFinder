@@ -11,6 +11,7 @@ import {
 
 import Header from './components/Header';
 import Footer from './components/Footer';
+import ErrorBoundary from './components/ErrorBoundary';
 
 import Login from './pages/Login';
 import Signup from './pages/Signup';
@@ -57,97 +58,99 @@ function App() {
       <Header user={user} handleLogout={handleLogout} />
 
       <main>
-        <Routes>
-          {/* Public Routes */}
-          <Route
-            path="/"
-            element={<Home user={user} />}
-          />
+        <ErrorBoundary>
+          <Routes>
+            {/* Public Routes */}
+            <Route
+              path="/"
+              element={<Home user={user} />}
+            />
 
-          <Route
-            path="/about"
-            element={<About />}
-          />
+            <Route
+              path="/about"
+              element={<About />}
+            />
 
-          <Route
-            path="/login"
-            element={
-              !user ? (
-                <Login onLogin={handleLogin} />
-              ) : (
-                <Navigate to="/" />
-              )
-            }
-          />
+            <Route
+              path="/login"
+              element={
+                !user ? (
+                  <Login onLogin={handleLogin} />
+                ) : (
+                  <Navigate to="/" />
+                )
+              }
+            />
 
-          <Route
-            path="/signup"
-            element={
-              !user ? (
-                <Signup onSignup={handleLogin} />
-              ) : (
-                <Navigate to="/" />
-              )
-            }
-          />
+            <Route
+              path="/signup"
+              element={
+                !user ? (
+                  <Signup onSignup={handleLogin} />
+                ) : (
+                  <Navigate to="/" />
+                )
+              }
+            />
 
-          {/* Protected Routes */}
+            {/* Protected Routes */}
 
-          <Route
-            path="/upload"
-            element={
-              user ? (
-                <Upload />
-              ) : (
-                <Navigate to="/login" />
-              )
-            }
-          />
+            <Route
+              path="/upload"
+              element={
+                user ? (
+                  <Upload />
+                ) : (
+                  <Navigate to="/login" />
+                )
+              }
+            />
 
-          <Route
-            path="/history"
-            element={
-              user ? (
-                <History username={user} />
-              ) : (
-                <Navigate to="/login" />
-              )
-            }
-          />
+            <Route
+              path="/history"
+              element={
+                user ? (
+                  <History username={user} />
+                ) : (
+                  <Navigate to="/login" />
+                )
+              }
+            />
 
-          <Route
-            path="/profile"
-            element={
-              user ? (
-                <Profile username={user} />
-              ) : (
-                <Navigate to="/login" />
-              )
-            }
-          />
+            <Route
+              path="/profile"
+              element={
+                user ? (
+                  <Profile username={user} />
+                ) : (
+                  <Navigate to="/login" />
+                )
+              }
+            />
 
-          <Route
-            path="/chatbot"
-            element={
-              user ? (
-                <Chatbot currentUser={{ id: user }} />
-              ) : (
-                <Navigate to="/login" />
-              )
-            }
-          />
+            <Route
+              path="/chatbot"
+              element={
+                user ? (
+                  <Chatbot currentUser={{ id: user }} />
+                ) : (
+                  <Navigate to="/login" />
+                )
+              }
+            />
 
-          <Route
-            path="/idea-search"
-            element={
-              user ? (
-                <IdeaSearch user={user} />
-              ) : (
-                <Navigate to="/login" />
-              )
-            }
-          />
-        </Routes>
+            <Route
+              path="/idea-search"
+              element={
+                user ? (
+                  <IdeaSearch user={user} />
+                ) : (
+                  <Navigate to="/login" />
+                )
+              }
+            />
+          </Routes>
+        </ErrorBoundary>
       </main>
 
       <Footer />
