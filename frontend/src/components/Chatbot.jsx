@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo } from "react";
 import "./Chatbot.css";
-import { apiUrl } from "../lib/api";
+import { apiFetch } from "../lib/api";
 import { Bot, Image, Send, Sparkles, Trash2, User } from "lucide-react";
 
 const Chatbot = ({ currentUser }) => {
@@ -49,10 +49,10 @@ const Chatbot = ({ currentUser }) => {
     setLoading(true);
 
     try {
-      const res = await fetch(apiUrl("/chatbot/query"), {
+      const res = await apiFetch("/chatbot/query", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user_id: currentUser.id, query }),
+        body: JSON.stringify({ query }),
       });
 
       const data = await res.json();

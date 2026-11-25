@@ -1,6 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import './App.css';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import {
+  UNAUTHORIZED_EVENT,
+  clearSession,
+  getDisplayName,
+  hasValidSession,
+  saveSession,
+} from './lib/api';
 
 import Header from './components/Header';
 import Footer from './components/Footer';
@@ -16,24 +23,33 @@ import Profile from './pages/Profile';
 import Chatbot from './components/Chatbot';
 
 function App() {
-  const [user, setUser] = useState(null);
+  // `user` is the display name of the signed-in user. It is only set while a
+  // non-expired token is stored; the server identifies the user by the token.
+  const [user, setUser] = useState(() => (hasValidSession() ? getDisplayName() : null));
+  const navigate = useNavigate();
 
   useEffect(() => {
-    const storedUser = localStorage.getItem('user');
-
-    if (storedUser) {
-      setUser(storedUser);
+    if (!hasValidSession()) {
+      clearSession();
     }
-  }, []);
 
-  const handleLogin = (username) => {
+    const handleUnauthorized = () => {
+      setUser(null);
+      navigate('/login', { replace: true });
+    };
+
+    window.addEventListener(UNAUTHORIZED_EVENT, handleUnauthorized);
+    return () => window.removeEventListener(UNAUTHORIZED_EVENT, handleUnauthorized);
+  }, [navigate]);
+
+  const handleLogin = ({ user: username, token }) => {
+    saveSession({ token, user: username });
     setUser(username);
-    localStorage.setItem('user', username);
   };
 
   const handleLogout = () => {
+    clearSession();
     setUser(null);
-    localStorage.removeItem('user');
   };
 
   return (
@@ -81,7 +97,7 @@ function App() {
             path="/upload"
             element={
               user ? (
-                <Upload username={user} />
+                <Upload />
               ) : (
                 <Navigate to="/login" />
               )

@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import './Upload.css';
-import { apiUrl } from '../lib/api';
+import { apiFetch } from '../lib/api';
 import { CheckCircle2, ImagePlus, Loader2, UploadCloud, XCircle } from 'lucide-react';
 import { Helmet } from "react-helmet-async";
 
-export default function Upload({ username }) {
+export default function Upload() {
   const [uploads, setUploads] = useState([]);
   const [globalMessage, setGlobalMessage] = useState('');
 
@@ -59,10 +59,10 @@ export default function Upload({ username }) {
 
         updateUploadState(uploadItem.id, { status: 'processing', message: 'AI analyzing this outfit...' });
 
-        const backendRes = await fetch(apiUrl('/classify'), {
+        const backendRes = await apiFetch('/classify', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ image_url: imageUrl, username }),
+          body: JSON.stringify({ image_url: imageUrl }),
         });
 
         const data = await backendRes.json();

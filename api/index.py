@@ -3,6 +3,7 @@ import logging
 from flask import Flask
 from flask_cors import CORS
 from config import Config
+from security import validate_jwt_config
 
 # Establish basic logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -11,6 +12,7 @@ def create_app():
     # Initialize Flask App
     app = Flask(__name__)
     app.config.from_object(Config)
+    validate_jwt_config(app.config)
     CORS(
         app,
         resources={r"/*": {"origins": app.config["CORS_ORIGINS"]}},

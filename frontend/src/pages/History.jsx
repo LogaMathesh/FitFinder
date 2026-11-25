@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import './History.css';
-import { apiUrl } from '../lib/api';
+import { apiFetch } from '../lib/api';
 import { Helmet } from "react-helmet-async";
 
 export default function History({ username }) {
@@ -15,7 +15,7 @@ export default function History({ username }) {
     try {
       console.log("History username:", username);
 
-      const res = await fetch(apiUrl(`/history/${username}`));
+      const res = await apiFetch('/history');
 
       const data = await res.json();
 
@@ -69,7 +69,7 @@ export default function History({ username }) {
   };
 
   const handleDelete = async (uploadId) => {
-    const res = await fetch(apiUrl('/delete_upload'), {
+    const res = await apiFetch('/delete_upload', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ upload_id: uploadId }),
@@ -85,10 +85,10 @@ export default function History({ username }) {
 
   const handleToggleFavorite = async (uploadId) => {
     try {
-      const res = await fetch(apiUrl('/toggle_favorite'), {
+      const res = await apiFetch('/toggle_favorite', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ upload_id: uploadId, username }),
+        body: JSON.stringify({ upload_id: uploadId }),
       });
 
       const result = await res.json();
