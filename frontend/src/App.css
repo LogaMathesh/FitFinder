@@ -79,6 +79,36 @@ main {
   min-width: 0;
 }
 
+.error-boundary {
+  max-width: 36rem;
+  margin: 3rem auto;
+  padding: 2rem;
+  text-align: center;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  box-shadow: var(--shadow-md);
+}
+
+.error-boundary h1 {
+  margin-bottom: 0.5rem;
+}
+
+.error-boundary p {
+  margin-bottom: 1.25rem;
+  color: var(--text-secondary);
+}
+
+.error-boundary button {
+  padding: 0.75rem 1.5rem;
+  color: white;
+  background: var(--primary-gradient);
+  border: 0;
+  border-radius: var(--border-radius-sm);
+  cursor: pointer;
+  font-weight: 600;
+}
+
 /* Modern Button Styles */
 .button-group {
   text-align: center;

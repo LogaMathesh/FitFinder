@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useMemo } from "react";
 import "./Chatbot.css";
 import { apiFetch } from "../lib/api";
 import { Bot, Image, Send, Sparkles, Trash2, User } from "lucide-react";
+import { Helmet } from "react-helmet-async";
 
 const Chatbot = ({ currentUser }) => {
   const historyKey = useMemo(
