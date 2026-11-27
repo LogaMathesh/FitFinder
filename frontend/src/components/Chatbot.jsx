@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo } from "react";
 import "./Chatbot.css";
 import { apiFetch } from "../lib/api";
+import { describeFailure, readJson, shortWait, usageLevel, useUsage } from "../lib/usage";
 import { Bot, Image, Send, Sparkles, Trash2, User } from "lucide-react";
 import { Helmet } from "react-helmet-async";
 
@@ -20,6 +21,7 @@ const Chatbot = ({ currentUser }) => {
   const [loading, setLoading] = useState(false);
   const [selectedImage, setSelectedImage] = useState(null);
   const chatEndRef = useRef(null);
+  const { usage, secondsToReset, outOfCredits, applyUsage } = useUsage("chatbot");
 
   useEffect(() => {
     try {
@@ -43,7 +45,7 @@ const Chatbot = ({ currentUser }) => {
   }, [messages]);
 
   const sendMessage = async () => {
-    if (!input.trim()) return;
+    if (!input.trim() || loading || outOfCredits) return;
 
     const query = input.trim();
     setMessages((prev) => [...prev, { type: "user", text: query }]);
@@ -56,8 +58,16 @@ const Chatbot = ({ currentUser }) => {
         body: JSON.stringify({ query }),
       });
 
-      const data = await res.json();
-      let botReply = "No recommendations found.";
+      const data = await readJson(res);
+      applyUsage(data.usage);
+
+      if (!res.ok) {
+        const kind = res.status === 429 ? "limit" : "error";
+        setMessages((prev) => [...prev, { type: "bot", kind, text: describeFailure(res, data) }]);
+        return;
+      }
+
+      let botReply;
       let images = [];
 
       if (data.results && data.results.length > 0) {
@@ -75,7 +85,7 @@ const Chatbot = ({ currentUser }) => {
 
       setMessages((prev) => [...prev, { type: "bot", text: botReply, images }]);
     } catch {
-      setMessages((prev) => [...prev, { type: "bot", text: "Error fetching results" }]);
+      setMessages((prev) => [...prev, { type: "bot", kind: "error", text: describeFailure(null) }]);
     } finally {
       setInput("");
       setLoading(false);
@@ -108,6 +118,17 @@ const Chatbot = ({ currentUser }) => {
           <h2>Fashion Assistant</h2>
           <p>Ask about outfits, occasions, colors, or saved wardrobe items.</p>
         </div>
+        {usage && (
+          <span
+            className={`usage-badge ${usageLevel(usage)}`}
+            title="Chats you can send in a rolling 30-minute window"
+          >
+            {usage.remaining} / {usage.limit} chats left
+            {secondsToReset !== null && usage.remaining < usage.limit && (
+              <> · next in {shortWait(secondsToReset)}</>
+            )}
+          </span>
+        )}
         {messages.length > 0 && (
           <button className="clear-chat-button" onClick={clearHistory} title="Clear chat history" aria-label="Clear chat history">
             <Trash2 size={17} />
@@ -124,7 +145,7 @@ const Chatbot = ({ currentUser }) => {
           </div>
         ) : (
           messages.map((m, i) => (
-            <div key={i} className={`chat-message ${m.type}`}>
+            <div key={i} className={`chat-message ${m.type} ${m.kind || ""}`}>
               <span className="message-avatar">
                 {m.type === "user" ? <User size={15} /> : <Bot size={15} />}
               </span>
@@ -161,9 +182,14 @@ const Chatbot = ({ currentUser }) => {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && sendMessage()}
-          placeholder="Ask for dress suggestions..."
+          placeholder={
+            outOfCredits
+              ? `Chat limit reached, try again in ${shortWait(secondsToReset)}`
+              : "Ask for dress suggestions..."
+          }
+          disabled={outOfCredits}
         />
-        <button onClick={sendMessage} disabled={loading || !input.trim()}>
+        <button onClick={sendMessage} disabled={loading || outOfCredits || !input.trim()}>
           <Send size={17} />
           <span>{loading ? "Sending" : "Send"}</span>
         </button>

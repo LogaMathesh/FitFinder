@@ -60,13 +60,44 @@
   transform: none;
 }
 
-.error-box {
+.usage-line {
+  margin: 10px 0 0;
+  color: #64748b;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.usage-line.low {
+  color: #b45309;
+}
+
+.usage-line.empty {
+  color: #b91c1c;
+}
+
+.notice-box {
   margin-top: 20px;
   padding: 15px;
+  border-radius: 8px;
+  border-left: 4px solid;
+}
+
+.notice-box.error {
   background-color: #fee2e2;
   color: #b91c1c;
-  border-radius: 8px;
-  border-left: 4px solid #ef4444;
+  border-left-color: #ef4444;
+}
+
+.notice-box.limit {
+  background-color: #fffbeb;
+  color: #92400e;
+  border-left-color: #f59e0b;
+}
+
+.notice-box.empty {
+  background-color: #f1f5f9;
+  color: #475569;
+  border-left-color: #94a3b8;
 }
 
 .query-box {

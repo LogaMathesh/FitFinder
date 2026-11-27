@@ -28,6 +28,8 @@ def create_app():
     from routes.idea_search import idea_search_bp
     from routes.profile import profile_bp
     from routes.interactions import interactions_bp
+    from routes.usage import usage_bp
+    from rate_limit import refund_on_server_error
 
 
     app.register_blueprint(auth_bp)
@@ -37,6 +39,8 @@ def create_app():
     app.register_blueprint(idea_search_bp)
     app.register_blueprint(profile_bp)
     app.register_blueprint(interactions_bp)
+    app.register_blueprint(usage_bp)
+    app.after_request(refund_on_server_error)
 
 
     return app
