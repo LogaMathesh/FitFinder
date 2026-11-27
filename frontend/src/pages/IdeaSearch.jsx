@@ -11,7 +11,7 @@ export default function IdeaSearch({ user }) {
   const [queryUsed, setQueryUsed] = useState('');
   // { kind: 'error' | 'limit' | 'empty', text }
   const [notice, setNotice] = useState(null);
-  const { usage, secondsToReset, outOfCredits, applyUsage } = useUsage('idea_search');
+  const { usage, secondsToReset, outOfCredits, checking, applyUsage } = useUsage('idea_search');
 
   const [interactions, setInteractions] = useState({});
 
@@ -122,8 +122,9 @@ export default function IdeaSearch({ user }) {
           )}
         </p>
       )}
+      {checking && <p className="usage-line checking">Checking credits…</p>}
 
-      {notice && <div className={`notice-box ${notice.kind}`}>{notice.text}</div>}
+      {notice &&<div className={`notice-box ${notice.kind}`}>{notice.text}</div>}
 
       {queryUsed && (
         <div className="query-box">

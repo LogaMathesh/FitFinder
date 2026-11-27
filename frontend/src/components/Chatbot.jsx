@@ -21,7 +21,7 @@ const Chatbot = ({ currentUser }) => {
   const [loading, setLoading] = useState(false);
   const [selectedImage, setSelectedImage] = useState(null);
   const chatEndRef = useRef(null);
-  const { usage, secondsToReset, outOfCredits, applyUsage } = useUsage("chatbot");
+  const { usage, secondsToReset, outOfCredits, checking, applyUsage } = useUsage("chatbot");
 
   useEffect(() => {
     try {
@@ -129,6 +129,7 @@ const Chatbot = ({ currentUser }) => {
             )}
           </span>
         )}
+        {checking && <span className="usage-badge checking">Checking credits…</span>}
         {messages.length > 0 && (
           <button className="clear-chat-button" onClick={clearHistory} title="Clear chat history" aria-label="Clear chat history">
             <Trash2 size={17} />

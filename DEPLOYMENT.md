@@ -23,6 +23,7 @@ Paste backend variables into Render under Web Service > Environment:
 - `CORS_ORIGINS`: Same Vercel URL plus local dev if needed: `https://fitfinder.vercel.app,http://localhost:5173`.
 - `SECRET_KEY`: Any long random string.
 - `RATE_LIMIT_WINDOW_MINUTES`, `CHATBOT_RATE_LIMIT`, `IDEA_SEARCH_RATE_LIMIT` (optional): per-user limits on the paid endpoints. Defaults: 5 chatbot queries and 2 idea searches per user per rolling 30 minutes.
+- `DB_POOL_MAX_IDLE` (optional, default 4): database connections each worker keeps open for reuse, so requests skip the slow connect to Supabase. With 2 gunicorn workers that is at most 8 idle connections, well within the free tier.
 
 Paste frontend variables into Vercel under Project Settings > Environment Variables:
 

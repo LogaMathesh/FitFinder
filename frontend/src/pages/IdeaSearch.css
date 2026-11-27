@@ -262,3 +262,8 @@
     grid-template-columns: 1fr;
   }
 }
+
+.usage-line.checking {
+  color: #94a3b8;
+  font-weight: 500;
+}

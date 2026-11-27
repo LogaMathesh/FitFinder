@@ -1,56 +1,171 @@
-import { useCallback, useEffect, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { apiFetch } from './api';
 
-// Tracks the rate-limit credits for one action ("chatbot" or "idea_search").
-// The server is the source of truth: GET /usage on mount, then the `usage`
-// object that every 200 and 429 response carries. A 400 or 5xx leaves the
-// count unchanged (5xx calls are refunded), so nothing needs updating then.
-export function useUsage(action) {
-  const [usage, setUsage] = useState(null);
-  const [now, setNow] = useState(() => Date.now());
+// Rate-limit credits for the paid features. One store for the whole app
+// (see components/UsageProvider.jsx), so moving between pages costs nothing.
+//
+// When the server is asked (GET /usage):
+//   - once when the app loads or the user logs in,
+//   - once when a used credit comes back (one timer for all actions),
+//   - when the tab becomes visible again, at most once a minute.
+// Chat and search replies carry the new count themselves, and the
+// "next in N min" countdown is computed locally, so neither calls the server.
+// Nothing runs while the tab is hidden.
 
-  const applyUsage = useCallback((u) => {
+export const ACTIONS = ['chatbot', 'idea_search'];
+const VISIBLE_REFRESH_MIN_MS = 60_000;
+const TICK_MS = 30_000;
+
+function cacheKey(user) {
+  return user ? `fitfinder_usage_${user}` : null;
+}
+
+function fromServer(u, at) {
+  return {
+    limit: u.limit,
+    remaining: u.remaining,
+    // Stored as an absolute time so a cached value stays meaningful later.
+    resetAt: u.reset_in_seconds ? at + u.reset_in_seconds * 1000 : null,
+  };
+}
+
+// The last known usage, shown at once while the server is asked again.
+// A credit whose reset time has already passed is counted back in.
+function readCache(key) {
+  if (!key) return {};
+  try {
+    const saved = JSON.parse(localStorage.getItem(key)) || {};
+    const now = Date.now();
+    const result = {};
+    for (const action of ACTIONS) {
+      const u = saved[action];
+      if (!u || typeof u.limit !== 'number' || typeof u.remaining !== 'number') continue;
+      result[action] = u.resetAt && u.resetAt <= now
+        ? { limit: u.limit, remaining: Math.min(u.limit, u.remaining + 1), resetAt: null }
+        : { limit: u.limit, remaining: u.remaining, resetAt: u.resetAt || null };
+    }
+    return result;
+  } catch {
+    return {};
+  }
+}
+
+function isVisible() {
+  return typeof document === 'undefined' || document.visibilityState !== 'hidden';
+}
+
+export const UsageContext = createContext({
+  usage: {},
+  now: 0,
+  pending: false,
+  applyUsage: () => {},
+});
+
+// State and timers behind UsageProvider.
+export function useUsageStore(user) {
+  const key = cacheKey(user);
+  const [usage, setUsage] = useState(() => readCache(key));
+  const [now, setNow] = useState(() => Date.now());
+  const [visible, setVisible] = useState(isVisible);
+  const [pending, setPending] = useState(Boolean(user));
+  const lastFetchRef = useRef(0);
+  const inFlightRef = useRef(false);
+
+  useEffect(() => {
+    if (!key) return;
+    try {
+      localStorage.setItem(key, JSON.stringify(usage));
+    } catch {
+      // Storage full or blocked: the counter still works, just without a cache.
+    }
+  }, [key, usage]);
+
+  const applyUsage = useCallback((action, u) => {
     if (!u || typeof u.remaining !== 'number') return;
     const at = Date.now();
     setNow(at);
-    setUsage({
-      limit: u.limit,
-      remaining: u.remaining,
-      resetAt: u.reset_in_seconds ? at + u.reset_in_seconds * 1000 : null,
-    });
+    setUsage((prev) => ({ ...prev, [action]: fromServer(u, at) }));
   }, []);
 
   const refresh = useCallback(async () => {
+    if (!user || inFlightRef.current) return;
+    inFlightRef.current = true;
     try {
       const res = await apiFetch('/usage');
       if (!res.ok) return;
       const data = await res.json();
-      applyUsage(data[action]);
+      const at = Date.now();
+      lastFetchRef.current = at;
+      setNow(at);
+      setUsage((prev) => {
+        const next = { ...prev };
+        for (const action of ACTIONS) {
+          if (data[action]) next[action] = fromServer(data[action], at);
+        }
+        return next;
+      });
     } catch {
-      // Leave the last known value; the counter is informational only.
+      // Keep the last known value; the counter is informational only.
+    } finally {
+      inFlightRef.current = false;
+      setPending(false);
     }
-  }, [action, applyUsage]);
+  }, [user]);
 
+  // Once per app load / login.
   useEffect(() => {
     refresh();
   }, [refresh]);
 
-  // Keep "next in N min" current, and re-read the count when a credit comes back.
-  const resetAt = usage?.resetAt;
+  // Pause while the tab is hidden; catch up when it is shown again.
   useEffect(() => {
-    if (!resetAt) return undefined;
-    const tick = setInterval(() => setNow(Date.now()), 30_000);
-    const reload = setTimeout(refresh, Math.max(0, resetAt - Date.now()) + 1000);
+    const onVisibilityChange = () => {
+      const shown = isVisible();
+      setVisible(shown);
+      if (!shown) return;
+      setNow(Date.now());
+      if (Date.now() - lastFetchRef.current > VISIBLE_REFRESH_MIN_MS) refresh();
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', onVisibilityChange);
+  }, [refresh]);
+
+  // One countdown tick and one reload timer for all actions, only while a
+  // credit is out and the tab is visible.
+  const nextResetAt = ACTIONS
+    .map((action) => usage[action]?.resetAt)
+    .filter(Boolean)
+    .reduce((min, t) => (min === null || t < min ? t : min), null);
+
+  useEffect(() => {
+    if (!visible || !nextResetAt) return undefined;
+    const tick = setInterval(() => setNow(Date.now()), TICK_MS);
+    const reload = setTimeout(refresh, Math.max(0, nextResetAt - Date.now()) + 1000);
     return () => {
       clearInterval(tick);
       clearTimeout(reload);
     };
-  }, [resetAt, refresh]);
+  }, [visible, nextResetAt, refresh]);
 
-  const secondsToReset = resetAt ? Math.max(0, Math.ceil((resetAt - now) / 1000)) : null;
-  const outOfCredits = usage !== null && usage.remaining <= 0;
+  return { usage, now, pending, applyUsage };
+}
 
-  return { usage, secondsToReset, outOfCredits, applyUsage };
+// Credits for one action, for a page.
+export function useUsage(action) {
+  const { usage, now, pending, applyUsage } = useContext(UsageContext);
+  const current = usage[action] || null;
+  const secondsToReset = current?.resetAt
+    ? Math.max(0, Math.ceil((current.resetAt - now) / 1000))
+    : null;
+  const apply = useCallback((u) => applyUsage(action, u), [applyUsage, action]);
+
+  return {
+    usage: current,
+    secondsToReset,
+    outOfCredits: current !== null && current.remaining <= 0,
+    checking: current === null && pending,
+    applyUsage: apply,
+  };
 }
 
 export function shortWait(seconds) {

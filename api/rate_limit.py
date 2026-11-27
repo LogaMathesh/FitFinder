@@ -124,18 +124,33 @@ def consume(action):
 
 
 def get_all_usage(username):
-    """Current usage of every action for one user. Uses no credit."""
+    """Current usage of every action for one user. Uses no credit.
+
+    One read-only query for all actions; expired rows are simply not counted
+    here (consume() prunes them).
+    """
+    window_minutes = int(current_app.config["RATE_LIMIT_WINDOW_MINUTES"])
     conn = get_connection()
     try:
         cur = conn.cursor()
-        result = {}
-        for action in ACTIONS:
-            limit, window_minutes, _ = _limits(action)
-            result[action] = _usage(cur, username, action, limit, window_minutes)
-        conn.commit()
-        return result
+        cur.execute(
+            """SELECT action, count(*),
+                      EXTRACT(EPOCH FROM (min(created_at) + make_interval(mins => %s) - now()))
+               FROM api_usage
+               WHERE username = %s AND created_at > now() - make_interval(mins => %s)
+               GROUP BY action""",
+            (window_minutes, username, window_minutes),
+        )
+        rows = {action: (used, seconds_left) for action, used, seconds_left in cur.fetchall()}
     finally:
         conn.close()
+
+    result = {}
+    for action in ACTIONS:
+        limit, _, _ = _limits(action)
+        used, seconds_left = rows.get(action, (0, None))
+        result[action] = _usage_dict(limit, used, seconds_left)
+    return result
 
 
 def refund_on_server_error(response):

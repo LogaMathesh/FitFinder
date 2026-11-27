@@ -165,3 +165,15 @@ def test_usage_is_per_user(client, alice, bob):
 
 def test_usage_requires_auth(client):
     assert client.get("/usage").status_code == 401
+
+
+def test_usage_is_read_only(client, db, alice):
+    db.query(
+        "INSERT INTO api_usage (username, action, created_at) VALUES (%s, 'chatbot', now() - interval '31 minutes')",
+        (alice.username,),
+    )
+
+    body = client.get("/usage", headers=alice.headers).get_json()
+
+    assert body["chatbot"]["used"] == 0  # expired rows are not counted...
+    assert used_rows(db, alice.username, "chatbot") == 1  # ...and not deleted by a read
