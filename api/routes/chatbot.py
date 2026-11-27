@@ -1,5 +1,6 @@
 import logging
 from flask import Blueprint, jsonify
+import rate_limit
 from services.gemini_service import suggest_matching_items
 from database import get_connection
 from request_utils import json_object
@@ -23,6 +24,10 @@ def chatbot_query():
     if not isinstance(query_text, str) or not query_text.strip():
         return jsonify({'error': 'Query text required'}), 400
     query_text = query_text.strip()
+
+    limited, usage = rate_limit.consume("chatbot")
+    if limited:
+        return limited
 
     try:
         conn = get_connection()
@@ -51,7 +56,8 @@ def chatbot_query():
             return jsonify({
                 'results': [],
                 'query': query_text,
-                'count': 0
+                'count': 0,
+                'usage': usage
             }), 200
 
         # Ask Gemini to rank items
@@ -72,7 +78,8 @@ def chatbot_query():
         return jsonify({
             'results': formatted_results,
             'query': query_text,
-            'count': len(formatted_results)
+            'count': len(formatted_results),
+            'usage': usage
         }), 200
 
     except Exception:

@@ -57,7 +57,7 @@ os.environ.update({
 
 API_DIR = Path(__file__).resolve().parents[1]
 SCHEMA_FILE = API_DIR.parent / "supabase_schema.sql"
-TABLES = ["user_interactions", "search_logs", "uploads", "user_profiles", "users"]
+TABLES = ["api_usage", "user_interactions", "search_logs", "uploads", "user_profiles", "users"]
 
 
 # --- Database --------------------------------------------------------------

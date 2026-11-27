@@ -14,6 +14,10 @@ class Config:
         for name in os.environ.get("ADMIN_USERNAMES", "").split(",")
         if name.strip()
     ]
+    # Per-user limits on the endpoints that call paid APIs (Gemini, SerpAPI).
+    RATE_LIMIT_WINDOW_MINUTES = int(os.environ.get("RATE_LIMIT_WINDOW_MINUTES", 30))
+    CHATBOT_RATE_LIMIT = int(os.environ.get("CHATBOT_RATE_LIMIT", 5))
+    IDEA_SEARCH_RATE_LIMIT = int(os.environ.get("IDEA_SEARCH_RATE_LIMIT", 2))
     MAX_CONTENT_LENGTH = int(os.environ.get("MAX_CONTENT_LENGTH", 8 * 1024 * 1024))
     FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:5173")
     CORS_ORIGINS = [

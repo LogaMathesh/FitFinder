@@ -8,6 +8,7 @@ import google.generativeai as genai
 import requests
 from config import Config
 from database import get_connection
+import rate_limit
 from request_utils import json_object
 from security import get_current_user, require_auth
 from prompts.gemini_prompts import SMART_FASHION_SEARCH_PROMPT
@@ -642,7 +643,11 @@ def search_ideas():
     
     if not isinstance(idea, str) or not idea.strip():
         return jsonify({'error': 'No idea provided'}), 400
-        
+
+    limited, usage = rate_limit.consume("idea_search")
+    if limited:
+        return limited
+
     try:
         conn = get_connection()
         cur = conn.cursor()
@@ -771,7 +776,8 @@ def search_ideas():
 
             return jsonify({
                 'query_used': query,
-                'results': clean_results
+                'results': clean_results,
+                'usage': usage
             }), 200
 
         # 4. Search SerpAPI using the AI generated query
@@ -837,7 +843,8 @@ def search_ideas():
             
         return jsonify({
             'query_used': query,
-            'results': clean_results
+            'results': clean_results,
+            'usage': usage
         }), 200
         
     except Exception:

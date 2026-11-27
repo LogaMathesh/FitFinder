@@ -54,3 +54,12 @@ CREATE TABLE IF NOT EXISTS user_interactions (
     interaction_type VARCHAR(50),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- 6. API Usage (rate limiting for paid endpoints: chatbot, idea search)
+CREATE TABLE IF NOT EXISTS api_usage (
+    id BIGSERIAL PRIMARY KEY,
+    username VARCHAR(255) NOT NULL REFERENCES users(username) ON DELETE CASCADE,
+    action VARCHAR(50) NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS api_usage_user_action_time ON api_usage (username, action, created_at);

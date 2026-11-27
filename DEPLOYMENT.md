@@ -22,6 +22,7 @@ Paste backend variables into Render under Web Service > Environment:
 - `FRONTEND_URL`: Your Vercel URL, for example `https://fitfinder.vercel.app`.
 - `CORS_ORIGINS`: Same Vercel URL plus local dev if needed: `https://fitfinder.vercel.app,http://localhost:5173`.
 - `SECRET_KEY`: Any long random string.
+- `RATE_LIMIT_WINDOW_MINUTES`, `CHATBOT_RATE_LIMIT`, `IDEA_SEARCH_RATE_LIMIT` (optional): per-user limits on the paid endpoints. Defaults: 5 chatbot queries and 2 idea searches per user per rolling 30 minutes.
 
 Paste frontend variables into Vercel under Project Settings > Environment Variables:
 
@@ -34,6 +35,7 @@ Paste frontend variables into Vercel under Project Settings > Environment Variab
 1. Create a Supabase project.
 2. Open SQL Editor and run `supabase_schema.sql`.
 3. Copy the pooled database connection string into `SUPABASE_DB_URL`.
+   - **Existing database:** if the schema was created before rate limiting was added, run the `api_usage` block (section 6 of `supabase_schema.sql`) once in the SQL Editor. Without that table, `/chatbot/query`, `/search-ideas` and `/usage` return 500.
 4. Use the anon key only for public frontend Supabase clients. This app currently uses Flask for database access, so keep database credentials on the backend only.
 
 ## Cloudinary Setup

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import './IdeaSearch.css';
 import { apiFetch } from '../lib/api';
+import { describeFailure, readJson, shortWait, usageLevel, useUsage } from '../lib/usage';
 import { Helmet } from "react-helmet-async";
 
 export default function IdeaSearch({ user }) {
@@ -8,18 +9,21 @@ export default function IdeaSearch({ user }) {
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState([]);
   const [queryUsed, setQueryUsed] = useState('');
-  const [error, setError] = useState(null);
+  // { kind: 'error' | 'limit' | 'empty', text }
+  const [notice, setNotice] = useState(null);
+  const { usage, secondsToReset, outOfCredits, applyUsage } = useUsage('idea_search');
 
   const [interactions, setInteractions] = useState({});
 
   const handleSearch = async (e) => {
     e.preventDefault();
-    if (!idea.trim()) return;
+    if (!idea.trim() || loading || outOfCredits) return;
 
     setLoading(true);
     setResults([]);
-    setError(null);
+    setNotice(null);
     setQueryUsed('');
+    setInteractions({});
 
     try {
       const response = await apiFetch('/search-ideas', {
@@ -28,20 +32,24 @@ export default function IdeaSearch({ user }) {
         body: JSON.stringify({ idea })
       });
 
-      const data = await response.json();
+      const data = await readJson(response);
+      applyUsage(data.usage);
 
       if (response.ok) {
-        setResults(data.results || []);
+        const found = data.results || [];
+        setResults(found);
         setQueryUsed(data.query_used || '');
-      } else {
-        if (data.error === 'gemini_api_key_missing') {
-          setError("⚠️ Please ask the server administrator to input the GEMINI_API_KEY inside the .env file.");
-        } else {
-          setError(data.message || data.details || data.error || 'Something went wrong.');
+        if (found.length === 0) {
+          setNotice({ kind: 'empty', text: 'No matches found, try describing it differently.' });
         }
+      } else {
+        setNotice({
+          kind: response.status === 429 ? 'limit' : 'error',
+          text: describeFailure(response, data),
+        });
       }
-    } catch (err) {
-      setError('Connection error: Make sure the backend server is running.');
+    } catch {
+      setNotice({ kind: 'error', text: describeFailure(null) });
     } finally {
       setLoading(false);
     }
@@ -97,12 +105,25 @@ export default function IdeaSearch({ user }) {
           placeholder="e.g., A flowy emerald green dress perfect for a winter formal gala"
           rows={3}
         />
-        <button type="submit" disabled={loading || !idea.trim()} className="btn btn-gradient search-btn">
-          {loading ? 'Searching the web...' : 'Find Matches'}
+        <button type="submit" disabled={loading || outOfCredits || !idea.trim()} className="btn btn-gradient search-btn">
+          {loading
+            ? 'Searching the web...'
+            : outOfCredits
+              ? `Try again in ${shortWait(secondsToReset)}`
+              : 'Find Matches'}
         </button>
       </form>
 
-      {error && <div className="error-box">{error}</div>}
+      {usage && (
+        <p className={`usage-line ${usageLevel(usage)}`}>
+          {usage.remaining} of {usage.limit} searches left
+          {secondsToReset !== null && usage.remaining < usage.limit && (
+            <> · next in {shortWait(secondsToReset)}</>
+          )}
+        </p>
+      )}
+
+      {notice && <div className={`notice-box ${notice.kind}`}>{notice.text}</div>}
 
       {queryUsed && (
         <div className="query-box">
