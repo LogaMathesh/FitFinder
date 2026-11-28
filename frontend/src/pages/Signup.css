@@ -120,6 +120,39 @@ form button:active {
   transform: translateY(0);
 }
 
+.signup-divider {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin: 1.25rem 0 0.75rem;
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 0.875rem;
+}
+
+.signup-divider::before,
+.signup-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.3);
+}
+
+form .google-signup-button {
+  margin-top: 0;
+  color: #1f2937;
+  background: #fff;
+  box-shadow: var(--shadow-sm);
+}
+
+form .google-signup-button::before {
+  display: none;
+}
+
+form .google-signup-button:hover {
+  color: #111827;
+  background: #f3f4f6;
+}
+
 form p {
   text-align: center;
   margin-top: 1.5rem;

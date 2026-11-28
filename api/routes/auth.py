@@ -10,7 +10,7 @@ import requests
 from authlib.integrations.base_client.errors import OAuthError
 from authlib.integrations.flask_client import OAuth
 from authlib.jose.errors import JoseError
-from flask import Blueprint, current_app, jsonify, redirect
+from flask import Blueprint, current_app, jsonify, redirect, request, session
 from werkzeug.security import generate_password_hash, check_password_hash
 from database import get_connection
 from request_utils import json_object
@@ -61,6 +61,20 @@ def _google_login_configured():
 def _frontend_login_redirect(**fragment_values):
     login_url = f'{current_app.config["FRONTEND_URL"].rstrip("/")}/login'
     response = redirect(f"{login_url}#{urlencode(fragment_values)}")
+    response.headers["Cache-Control"] = "no-store"
+    response.headers["Referrer-Policy"] = "no-referrer"
+    return response
+
+
+def _frontend_oauth_redirect(destination=None, **fragment_values):
+    try:
+        next_page = session.pop("google_oauth_next", None)
+    except RuntimeError:
+        next_page = None
+    if destination is None:
+        destination = "/signup" if next_page == "signup" else "/login"
+    frontend_url = f'{current_app.config["FRONTEND_URL"].rstrip("/")}{destination}'
+    response = redirect(f"{frontend_url}#{urlencode(fragment_values)}")
     response.headers["Cache-Control"] = "no-store"
     response.headers["Referrer-Policy"] = "no-referrer"
     return response
@@ -249,13 +263,21 @@ def login():
 
 @auth_bp.route('/auth/google', methods=['GET'])
 def google_login():
+    oauth_destination = "/signup" if request.args.get("next") == "signup" else "/login"
+    try:
+        if request.args.get("next") == "signup":
+            session["google_oauth_next"] = "signup"
+        else:
+            session.pop("google_oauth_next", None)
+    except RuntimeError:
+        pass
     if not _google_login_configured():
-        return _frontend_login_redirect(oauth_error="not_configured")
+        return _frontend_oauth_redirect(oauth_destination, oauth_error="not_configured")
     try:
         response = oauth.google.authorize_redirect(current_app.config["GOOGLE_REDIRECT_URI"])
     except (OAuthError, JoseError, requests.RequestException):
         logger.exception("Could not start Google OAuth")
-        return _frontend_login_redirect(oauth_error="google_auth_failed")
+        return _frontend_oauth_redirect(oauth_destination, oauth_error="google_auth_failed")
     response.headers["Cache-Control"] = "no-store"
     return response
 
@@ -263,18 +285,18 @@ def google_login():
 @auth_bp.route('/auth/google/callback', methods=['GET'])
 def google_callback():
     if not _google_login_configured():
-        return _frontend_login_redirect(oauth_error="not_configured")
+        return _frontend_oauth_redirect(oauth_error="not_configured")
 
     try:
         token = oauth.google.authorize_access_token()
     except (OAuthError, JoseError, requests.RequestException):
         logger.info("Google OAuth authorization was rejected or failed")
-        return _frontend_login_redirect(oauth_error="google_auth_failed")
+        return _frontend_oauth_redirect(oauth_error="google_auth_failed")
 
     userinfo = token.get("userinfo") if isinstance(token, Mapping) else None
     if not isinstance(userinfo, Mapping):
         logger.warning("Google OAuth response did not contain verified OIDC userinfo")
-        return _frontend_login_redirect(oauth_error="google_auth_failed")
+        return _frontend_oauth_redirect(oauth_error="google_auth_failed")
 
     sub = userinfo.get("sub")
     email = userinfo.get("email")
@@ -284,20 +306,20 @@ def google_callback():
         or userinfo.get("email_verified") is not True
     ):
         logger.warning("Google OIDC identity is missing a verified subject or email")
-        return _frontend_login_redirect(oauth_error="google_auth_failed")
+        return _frontend_oauth_redirect(oauth_error="google_auth_failed")
 
     email = email.strip().lower()
     if len(email) > USERNAME_MAX_LENGTH:
-        return _frontend_login_redirect(oauth_error="account_conflict")
+        return _frontend_oauth_redirect(oauth_error="account_conflict")
     try:
         user = _resolve_google_user(sub.strip(), email)
         if not user:
-            return _frontend_login_redirect(oauth_error="account_conflict")
+            return _frontend_oauth_redirect(oauth_error="account_conflict")
         code = _create_oauth_code(user[0])
     except psycopg.Error:
-        return _frontend_login_redirect(oauth_error="server_error")
+        return _frontend_oauth_redirect(oauth_error="server_error")
 
-    return _frontend_login_redirect(oauth_code=code)
+    return _frontend_oauth_redirect(oauth_code=code)
 
 
 @auth_bp.route('/auth/google/exchange', methods=['POST'])

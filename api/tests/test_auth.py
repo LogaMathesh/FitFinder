@@ -197,6 +197,16 @@ def test_google_login_requires_configured_credentials(client):
     assert oauth_fragment_values(response) == {"oauth_error": ["not_configured"]}
 
 
+def test_google_signup_redirects_errors_to_signup(client):
+    response = client.get("/auth/google?next=signup")
+
+    assert response.status_code == 302
+    assert response.headers["Location"].startswith(
+        f'{client.application.config["FRONTEND_URL"].rstrip("/")}/signup#'
+    )
+    assert oauth_fragment_values(response) == {"oauth_error": ["not_configured"]}
+
+
 def test_google_login_uses_configured_callback_uri(client, app, app_modules, monkeypatch):
     install_fake_google(app, app_modules.auth, monkeypatch)
 
