@@ -27,7 +27,7 @@ export default function Signup({ onSignup }) {
       } else {
         setMessage(data.error || 'Signup failed');
       }
-    } catch (error) {
+    } catch {
       setMessage('Network error. Please try again.');
     } finally {
       setIsLoading(false);

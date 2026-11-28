@@ -1,8 +1,12 @@
 """Login/signup issue a JWT; protected routes reject missing or bad tokens."""
 import datetime
+import hashlib
+from urllib.parse import parse_qs, urlsplit
 
 import jwt
 import pytest
+from authlib.integrations.base_client.errors import OAuthError
+from flask import redirect
 
 from conftest import DEFAULT_PASSWORD, TEST_JWT_SECRET
 
@@ -31,6 +35,33 @@ def call(client, method, path, body=None, headers=None):
 
 def decode(token):
     return jwt.decode(token, TEST_JWT_SECRET, algorithms=["HS256"])
+
+
+def install_fake_google(app, auth_module, monkeypatch, *, userinfo=None, error=None):
+    app.config.update({
+        "GOOGLE_CLIENT_ID": "test-client-id",
+        "GOOGLE_CLIENT_SECRET": "test-client-secret",
+        "GOOGLE_REDIRECT_URI": "http://localhost:5000/auth/google/callback",
+        "SECRET_KEY": "test-only-flask-session-secret-0123456789",
+    })
+
+    class FakeGoogle:
+        def authorize_redirect(self, redirect_uri):
+            if error:
+                raise error
+            assert redirect_uri == app.config["GOOGLE_REDIRECT_URI"]
+            return redirect("https://accounts.google.com/")
+
+        def authorize_access_token(self):
+            if error:
+                raise error
+            return {"userinfo": userinfo}
+
+    monkeypatch.setattr(auth_module.oauth, "google", FakeGoogle(), raising=False)
+
+
+def oauth_fragment_values(response):
+    return parse_qs(urlsplit(response.headers["Location"]).fragment)
 
 
 # --- Token issuance ---------------------------------------------------------
@@ -157,6 +188,173 @@ def test_cors_preflight_does_not_require_a_token(client):
 
 def test_public_status_route_needs_no_token(client):
     assert client.get("/chatbot/status").status_code == 200
+
+
+def test_google_login_requires_configured_credentials(client):
+    response = client.get("/auth/google")
+
+    assert response.status_code == 302
+    assert oauth_fragment_values(response) == {"oauth_error": ["not_configured"]}
+
+
+def test_google_login_uses_configured_callback_uri(client, app, app_modules, monkeypatch):
+    install_fake_google(app, app_modules.auth, monkeypatch)
+
+    response = client.get("/auth/google")
+
+    assert response.status_code == 302
+    assert response.headers["Location"] == "https://accounts.google.com/"
+
+
+def test_google_login_redirects_when_provider_start_fails(
+    client, app, app_modules, monkeypatch
+):
+    install_fake_google(
+        app, app_modules.auth, monkeypatch,
+        error=OAuthError(error="provider_unavailable"),
+    )
+
+    response = client.get("/auth/google")
+
+    assert response.status_code == 302
+    assert oauth_fragment_values(response) == {"oauth_error": ["google_auth_failed"]}
+
+
+def test_google_callback_creates_account_and_exchanges_single_use_code(
+    client, app, app_modules, monkeypatch, db
+):
+    install_fake_google(
+        app, app_modules.auth, monkeypatch,
+        userinfo={
+            "sub": "google-user-123",
+            "email": "new.user@example.com",
+            "email_verified": True,
+        },
+    )
+
+    callback = client.get("/auth/google/callback")
+    values = oauth_fragment_values(callback)
+
+    assert callback.status_code == 302
+    assert set(values) == {"oauth_code"}
+    code = values["oauth_code"][0]
+    assert callback.headers["Cache-Control"] == "no-store"
+    assert callback.headers["Referrer-Policy"] == "no-referrer"
+    assert db.query("SELECT code_hash FROM oauth_login_codes") == [
+        (hashlib.sha256(code.encode("utf-8")).hexdigest(),)
+    ]
+    assert db.query(
+        "SELECT username, email, google_sub, password_hash FROM users"
+    ) == [("new.user@example.com", "new.user@example.com", "google-user-123", None)]
+
+    exchange = client.post("/auth/google/exchange", json={"code": code})
+
+    assert exchange.status_code == 200
+    body = exchange.get_json()
+    claims = decode(body["token"])
+    assert body["user"] == "new.user@example.com"
+    assert claims["sub"] == str(db.query("SELECT id FROM users")[0][0])
+    assert claims["username"] == body["user"]
+    assert exchange.headers["Cache-Control"] == "no-store"
+    assert client.get("/history", headers={"Authorization": f"Bearer {body['token']}"}).status_code == 200
+    assert client.post("/login", json={
+        "username": body["user"], "password": DEFAULT_PASSWORD,
+    }).status_code == 401
+
+    replay = client.post("/auth/google/exchange", json={"code": code})
+    assert replay.status_code == 400
+
+
+def test_google_callback_links_existing_username_email_account(
+    client, app, app_modules, monkeypatch, db
+):
+    email = "alice@example.com"
+    user_id = db.create_user(email)
+    install_fake_google(
+        app, app_modules.auth, monkeypatch,
+        userinfo={"sub": "google-alice", "email": email, "email_verified": True},
+    )
+
+    callback = client.get("/auth/google/callback")
+    code = oauth_fragment_values(callback)["oauth_code"][0]
+    exchange = client.post("/auth/google/exchange", json={"code": code})
+
+    assert exchange.status_code == 200
+    assert decode(exchange.get_json()["token"])["sub"] == str(user_id)
+    assert db.query("SELECT email, google_sub FROM users WHERE id = %s", (user_id,)) == [
+        (email, "google-alice")
+    ]
+
+
+def test_google_callback_rejects_unverified_email(
+    client, app, app_modules, monkeypatch, db
+):
+    install_fake_google(
+        app, app_modules.auth, monkeypatch,
+        userinfo={"sub": "unverified-user", "email": "person@example.com", "email_verified": False},
+    )
+
+    callback = client.get("/auth/google/callback")
+
+    assert oauth_fragment_values(callback) == {"oauth_error": ["google_auth_failed"]}
+    assert db.query("SELECT id FROM users") == []
+
+
+def test_google_callback_rejects_email_linked_to_another_google_subject(
+    client, app, app_modules, monkeypatch, db
+):
+    email = "existing@example.com"
+    user_id = db.create_user(email)
+    db.query(
+        "UPDATE users SET email = %s, google_sub = %s WHERE id = %s",
+        (email, "already-linked-sub", user_id),
+    )
+    install_fake_google(
+        app, app_modules.auth, monkeypatch,
+        userinfo={"sub": "different-sub", "email": email, "email_verified": True},
+    )
+
+    callback = client.get("/auth/google/callback")
+
+    assert oauth_fragment_values(callback) == {"oauth_error": ["account_conflict"]}
+    assert db.query("SELECT google_sub FROM users WHERE id = %s", (user_id,)) == [
+        ("already-linked-sub",)
+    ]
+
+
+def test_google_callback_handles_authlib_state_or_provider_errors(
+    client, app, app_modules, monkeypatch
+):
+    install_fake_google(
+        app, app_modules.auth, monkeypatch,
+        error=OAuthError(error="invalid_state"),
+    )
+
+    callback = client.get("/auth/google/callback")
+
+    assert oauth_fragment_values(callback) == {"oauth_error": ["google_auth_failed"]}
+
+
+def test_google_callback_rejects_missing_oauth_state(client, app, app_modules):
+    app.config.update({
+        "GOOGLE_CLIENT_ID": "test-client-id",
+        "GOOGLE_CLIENT_SECRET": "test-client-secret",
+        "GOOGLE_REDIRECT_URI": "http://localhost:5000/auth/google/callback",
+        "SECRET_KEY": "test-only-flask-session-secret-0123456789",
+    })
+    app_modules.auth.init_oauth(app)
+
+    callback = client.get("/auth/google/callback?code=must-not-be-used")
+
+    assert oauth_fragment_values(callback) == {"oauth_error": ["google_auth_failed"]}
+
+
+@pytest.mark.parametrize("body", [{}, {"code": 123}, {"code": ""}, {"code": "x" * 129}])
+def test_google_code_exchange_rejects_invalid_input(client, body):
+    response = client.post("/auth/google/exchange", json=body)
+
+    assert response.status_code == 400
+    assert "token" not in response.get_json()
 
 
 # --- Signup/login status codes ---------------------------------------------

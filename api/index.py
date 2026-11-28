@@ -21,7 +21,7 @@ def create_app():
     )
 
     # Register blueprints
-    from routes.auth import auth_bp
+    from routes.auth import auth_bp, init_oauth
     from routes.uploads import uploads_bp
     from routes.maintenance import maintenance_bp
     from routes.chatbot import chatbot_bp
@@ -33,6 +33,7 @@ def create_app():
 
 
     app.register_blueprint(auth_bp)
+    init_oauth(app)
     app.register_blueprint(uploads_bp)
     app.register_blueprint(maintenance_bp)
     app.register_blueprint(chatbot_bp)

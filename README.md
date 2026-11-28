@@ -93,12 +93,20 @@ This is a client-side session mechanism only; there is no server-side JWT/sessio
 #### Storage
 
 - `users` table stores `username` and `password_hash`.
-- Note: the current `api/init_db.py` schema creates `password TEXT NOT NULL`, but the backend writes `password_hash`. This is a schema mismatch that should be fixed.
+- Google accounts are linked to these same users through a unique Google `sub`; username remains the application identity used by existing JWTs and protected APIs.
+- `api/init_db.py` and `supabase_schema.sql` define the backend's `password_hash` column; Google-only accounts have a null hash and still use the same username-based app identity.
 
 #### Why this design
 
 - Storing hashed passwords is required for security.
-- The current flow is simple, but it is not production-grade because it lacks tokens, sessions, or CSRF protections.
+- Existing password login continues to issue the same short-lived bearer JWT used by protected routes.
+
+#### Google login
+
+- `GET /auth/google` starts the Authlib OpenID Connect flow; `GET /auth/google/callback` verifies Google's response and finds or creates the existing-style username record.
+- A Google-only account has no password hash, so username/password login continues to return invalid credentials for that account.
+- The callback redirects with a short-lived one-time code in the URL fragment. React removes the fragment and exchanges the code for the same HS256 application JWT used by password login.
+- Configure `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`, and a strong `SECRET_KEY` on the backend. See [DEPLOYMENT.md](./DEPLOYMENT.md) for local and Render setup.
 
 ---
 
@@ -390,6 +398,7 @@ npm run dev
 
 - Backend config is read from `api/config.py` and `.env` files.
 - Frontend config is read from `frontend/.env` and `import.meta.env`.
+- For local Google login, put Google OAuth credentials, `FLASK_ENV=development`, and `GOOGLE_REDIRECT_URI=http://localhost:5000/auth/google/callback` in `api/.env`; set the local API base in `frontend/.env` as `VITE_API_URL=http://localhost:5000`.
 - The key variables are:
   - `SUPABASE_DB_URL`
   - `GEMINI_API_KEY`

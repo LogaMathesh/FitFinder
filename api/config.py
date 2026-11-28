@@ -9,6 +9,9 @@ class Config:
     SECRET_KEY = os.environ.get("SECRET_KEY")
     JWT_SECRET_KEY = os.environ.get("JWT_SECRET_KEY")
     JWT_EXPIRES_MINUTES = int(os.environ.get("JWT_EXPIRES_MINUTES", 60))
+    GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID")
+    GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET")
+    GOOGLE_REDIRECT_URI = os.environ.get("GOOGLE_REDIRECT_URI")
     ADMIN_USERNAMES = [
         name.strip()
         for name in os.environ.get("ADMIN_USERNAMES", "").split(",")
@@ -20,6 +23,9 @@ class Config:
     IDEA_SEARCH_RATE_LIMIT = int(os.environ.get("IDEA_SEARCH_RATE_LIMIT", 2))
     MAX_CONTENT_LENGTH = int(os.environ.get("MAX_CONTENT_LENGTH", 8 * 1024 * 1024))
     FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:5173")
+    SESSION_COOKIE_HTTPONLY = True
+    SESSION_COOKIE_SECURE = ENV == "production"
+    SESSION_COOKIE_SAMESITE = "Lax"
     CORS_ORIGINS = [
         origin.strip()
         for origin in os.environ.get("CORS_ORIGINS", FRONTEND_URL).split(",")

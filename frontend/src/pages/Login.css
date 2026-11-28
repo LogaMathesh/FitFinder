@@ -120,6 +120,39 @@
   transform: translateY(0);
 }
 
+.login-divider {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin: 1.25rem 0 0.75rem;
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 0.875rem;
+}
+
+.login-divider::before,
+.login-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.login-container .google-login-button {
+  margin-top: 0;
+  color: #1f2937;
+  background: #fff;
+  box-shadow: var(--shadow-sm);
+}
+
+.login-container .google-login-button::before {
+  display: none;
+}
+
+.login-container .google-login-button:hover {
+  color: #111827;
+  background: #f3f4f6;
+}
+
 .login-container p {
   text-align: center;
   margin-top: 1.5rem;

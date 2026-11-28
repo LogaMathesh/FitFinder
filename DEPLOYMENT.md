@@ -21,7 +21,11 @@ Paste backend variables into Render under Web Service > Environment:
 - `SERPAPI_KEY`: SerpAPI key, only if `/search-ideas` is enabled.
 - `FRONTEND_URL`: Your Vercel URL, for example `https://fitfinder.vercel.app`.
 - `CORS_ORIGINS`: Same Vercel URL plus local dev if needed: `https://fitfinder.vercel.app,http://localhost:5173`.
-- `SECRET_KEY`: Any long random string.
+- `SECRET_KEY`: A random secret of at least 32 bytes, used to sign the OAuth state session cookie.
+- `JWT_SECRET_KEY`: A separate random secret of at least 32 bytes for existing application JWTs.
+- `GOOGLE_CLIENT_ID`: OAuth 2.0 client ID from Google Cloud Console.
+- `GOOGLE_CLIENT_SECRET`: OAuth 2.0 client secret from Google Cloud Console.
+- `GOOGLE_REDIRECT_URI`: Exact callback URI registered in Google Cloud Console, for example `https://fitfinder-api.onrender.com/auth/google/callback`.
 - `RATE_LIMIT_WINDOW_MINUTES`, `CHATBOT_RATE_LIMIT`, `IDEA_SEARCH_RATE_LIMIT` (optional): per-user limits on the paid endpoints. Defaults: 5 chatbot queries and 2 idea searches per user per rolling 30 minutes.
 - `DB_POOL_MAX_IDLE` (optional, default 4): database connections each worker keeps open for reuse, so requests skip the slow connect to Supabase. With 2 gunicorn workers that is at most 8 idle connections, well within the free tier.
 
@@ -38,6 +42,32 @@ Paste frontend variables into Vercel under Project Settings > Environment Variab
 3. Copy the pooled database connection string into `SUPABASE_DB_URL`.
    - **Existing database:** if the schema was created before rate limiting was added, run the `api_usage` block (section 6 of `supabase_schema.sql`) once in the SQL Editor. Without that table, `/chatbot/query`, `/search-ideas` and `/usage` return 500.
 4. Use the anon key only for public frontend Supabase clients. This app currently uses Flask for database access, so keep database credentials on the backend only.
+5. **Existing database:** re-run the updated `supabase_schema.sql` to add the nullable Google identity fields and one-time OAuth code table. It is safe to re-run on an existing schema.
+
+## Google OAuth Setup
+
+1. In Google Cloud Console, configure the OAuth consent screen and create a Web application OAuth client.
+2. Add the exact backend callback URL as an Authorized redirect URI:
+   - Local: `http://localhost:5000/auth/google/callback`
+   - Render: `https://<your-render-service>.onrender.com/auth/google/callback`
+3. Set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `GOOGLE_REDIRECT_URI` on the backend. Keep the client secret and both server secrets private; never add them to Vercel or a `VITE_*` variable.
+4. For local development, create `api/.env` with:
+
+   ```dotenv
+   FLASK_ENV=development
+   SECRET_KEY=<random secret, at least 32 bytes>
+   JWT_SECRET_KEY=<different random secret, at least 32 bytes>
+   GOOGLE_CLIENT_ID=<Google OAuth client ID>
+   GOOGLE_CLIENT_SECRET=<Google OAuth client secret>
+   GOOGLE_REDIRECT_URI=http://localhost:5000/auth/google/callback
+   FRONTEND_URL=http://localhost:5173
+   CORS_ORIGINS=http://localhost:5173
+   ```
+
+   Configure the frontend's `VITE_API_URL` to `http://localhost:5000`.
+5. In Render, set the same Google client credentials and the Render callback URI. Keep `FRONTEND_URL` set to the deployed frontend origin and include it in `CORS_ORIGINS`.
+
+The callback uses Authlib's OpenID Connect state and ID-token validation. Only a verified Google email can link to an existing username/email match. The application JWT is returned only after the frontend exchanges a short-lived, single-use code; the JWT itself is not placed in a redirect URL.
 
 ## Cloudinary Setup
 
