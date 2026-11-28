@@ -1,0 +1,341 @@
+.preference-onboarding {
+  width: min(100%, 700px);
+  min-height: 690px;
+  margin: 0 auto;
+  overflow: hidden;
+  border: 1px solid #e5e7eb;
+  border-radius: 24px;
+  background: #fff;
+  box-shadow: 0 24px 70px rgba(30, 41, 59, 0.13);
+}
+
+.onboarding-topbar {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  min-height: 66px;
+  padding: 0.75rem 1.4rem;
+  border-bottom: 1px solid #eef0f6;
+  color: #172033;
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+.onboarding-back,
+.onboarding-topbar-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 auto;
+  border: 0;
+  border-radius: 50%;
+}
+
+.onboarding-back {
+  background: transparent;
+  color: #4f46e5;
+  cursor: pointer;
+}
+
+.onboarding-back:hover {
+  background: #eef2ff;
+}
+
+.onboarding-back:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.onboarding-topbar-mark {
+  margin-left: auto;
+  background: #eef2ff;
+  color: #5b52e8;
+}
+
+.onboarding-content {
+  padding: 2rem clamp(1.1rem, 5vw, 3rem) 2.2rem;
+}
+
+.onboarding-intro {
+  max-width: 520px;
+  margin: 0 auto 1.7rem;
+  text-align: center;
+}
+
+.onboarding-kicker {
+  color: #5148dc;
+  font-size: 0.75rem;
+  font-weight: 850;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.onboarding-intro h1 {
+  margin: 0.5rem 0 0.35rem;
+  color: #111827;
+  font-size: clamp(1.8rem, 5vw, 2.35rem);
+  font-weight: 850;
+  letter-spacing: -0.045em;
+  line-height: 1.1;
+}
+
+.onboarding-intro p,
+.onboarding-question-heading p {
+  color: #586174;
+  line-height: 1.55;
+}
+
+.onboarding-intro p {
+  margin: 0 auto;
+  max-width: 440px;
+}
+
+.onboarding-question-progress {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.55rem;
+  color: #6259e8;
+  font-size: 0.75rem;
+  font-weight: 850;
+  letter-spacing: 0.06em;
+}
+
+.onboarding-question-progress span:last-child {
+  color: #586174;
+  font-weight: 650;
+  letter-spacing: 0;
+}
+
+.onboarding-progress-track {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e4e9fb;
+}
+
+.onboarding-progress-track span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #4f46e5, #7167f5);
+  transition: width 240ms ease;
+}
+
+.onboarding-question-window {
+  min-height: 330px;
+  padding-top: 1.6rem;
+}
+
+.onboarding-question-heading {
+  margin-bottom: 1.2rem;
+  text-align: center;
+}
+
+.onboarding-question-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  margin-bottom: 0.65rem;
+  border-radius: 15px;
+  background: #eef2ff;
+  color: #5148dc;
+}
+
+.onboarding-question-heading h2 {
+  margin: 0;
+  color: #172033;
+  font-size: clamp(1.25rem, 4vw, 1.65rem);
+  font-weight: 850;
+  letter-spacing: -0.035em;
+}
+
+.onboarding-question-heading h2:focus {
+  outline: none;
+}
+
+.onboarding-question-heading p {
+  margin: 0.4rem 0 0;
+}
+
+.onboarding-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  max-width: 560px;
+  margin: 0 auto;
+}
+
+.onboarding-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  min-height: 58px;
+  padding: 0.75rem 0.9rem;
+  border: 1px solid #e2e5ed;
+  border-radius: 15px;
+  background: #fff;
+  color: #273247;
+  cursor: pointer;
+  font-weight: 700;
+  text-align: left;
+  transition: border-color 160ms ease, background 160ms ease, transform 160ms ease, box-shadow 160ms ease;
+}
+
+.onboarding-option:hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: #928cf2;
+  box-shadow: 0 5px 16px rgba(79, 70, 229, 0.09);
+}
+
+.onboarding-option.selected {
+  border-color: #5b52e8;
+  background: #f3f2ff;
+  color: #3830b5;
+}
+
+.onboarding-option:disabled:not(.selected) {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.onboarding-option-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+  border: 1px solid #cbd1dd;
+  border-radius: 50%;
+  color: #fff;
+}
+
+.onboarding-option.selected .onboarding-option-check {
+  border-color: #5148dc;
+  background: #5148dc;
+}
+
+.onboarding-selection-hint {
+  margin: 0.7rem 0 0;
+  color: #697386;
+  font-size: 0.8rem;
+  text-align: center;
+}
+
+.onboarding-error {
+  margin: 0 0 1rem;
+  color: #be123c;
+  font-size: 0.9rem;
+  font-weight: 650;
+  text-align: center;
+}
+
+.onboarding-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-top: 0.5rem;
+}
+
+.onboarding-skip {
+  padding: 0.7rem 0;
+  border: 0;
+  background: transparent;
+  color: #586174;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.onboarding-skip:hover {
+  color: #3830b5;
+}
+
+.onboarding-continue {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  min-width: 180px;
+  min-height: 50px;
+  padding: 0.8rem 1.2rem;
+  border: 0;
+  border-radius: 999px;
+  background: linear-gradient(110deg, #4f46df, #665cf0);
+  box-shadow: 0 8px 18px rgba(79, 70, 229, 0.2);
+  color: #fff;
+  cursor: pointer;
+  font-weight: 800;
+  transition: transform 160ms ease, box-shadow 160ms ease;
+}
+
+.onboarding-continue:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 11px 22px rgba(79, 70, 229, 0.28);
+}
+
+.onboarding-continue:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
+.onboarding-option:focus-visible,
+.onboarding-back:focus-visible,
+.onboarding-skip:focus-visible,
+.onboarding-continue:focus-visible {
+  outline: 3px solid rgba(79, 70, 229, 0.35);
+  outline-offset: 3px;
+}
+
+@media (max-width: 560px) {
+  .preference-onboarding {
+    min-height: 660px;
+    border-radius: 18px;
+  }
+
+  .onboarding-topbar {
+    min-height: 58px;
+    padding: 0.6rem 0.9rem;
+  }
+
+  .onboarding-content {
+    padding: 1.5rem 1rem 1.5rem;
+  }
+
+  .onboarding-question-window {
+    min-height: 360px;
+    padding-top: 1.25rem;
+  }
+
+  .onboarding-options {
+    gap: 0.6rem;
+  }
+
+  .onboarding-option {
+    min-height: 54px;
+    padding: 0.65rem 0.7rem;
+    font-size: 0.9rem;
+  }
+
+  .onboarding-actions {
+    align-items: stretch;
+  }
+
+  .onboarding-continue {
+    min-width: 150px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .onboarding-progress-track span,
+  .onboarding-option,
+  .onboarding-continue {
+    transition-duration: 0.01ms !important;
+  }
+}

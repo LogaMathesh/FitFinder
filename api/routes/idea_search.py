@@ -665,15 +665,24 @@ def search_ideas():
         }
         if username:
             # Fetch static profile
-            cur.execute("SELECT gender, budget_level, sizes, style_preferences FROM user_profiles WHERE username = %s", (username,))
+            cur.execute(
+                """SELECT gender, budget_level, sizes, style_preferences, onboarding_preferences
+                   FROM user_profiles WHERE username = %s""",
+                (username,),
+            )
             row = cur.fetchone()
             if row:
-                gender, budget, sizes, style = row
+                gender, budget, sizes, style, onboarding_preferences = row
                 profile_parts = []
                 if gender: profile_parts.append(f"Gender: {gender}")
                 if budget: profile_parts.append(f"Budget Level: {budget}")
                 if sizes: profile_parts.append(f"Sizes: {sizes}")
                 if style: profile_parts.append(f"Style Preferences: {style}")
+                if onboarding_preferences:
+                    profile_parts.append(
+                        "Self-reported fashion preferences: "
+                        + json.dumps(onboarding_preferences, ensure_ascii=False)
+                    )
                 
                 if profile_parts:
                     profile_context += "\nUser Profile Constraints:\n" + "\n".join(profile_parts) + "\nIncorporate these profile preferences into the search query if they make sense, but prioritize the user's explicit description."

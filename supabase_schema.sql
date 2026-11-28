@@ -20,8 +20,11 @@ CREATE UNIQUE INDEX IF NOT EXISTS users_email_unique
 CREATE TABLE IF NOT EXISTS oauth_login_codes (
     code_hash CHAR(64) PRIMARY KEY,
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    expires_at TIMESTAMPTZ NOT NULL
+    expires_at TIMESTAMPTZ NOT NULL,
+    onboarding_required BOOLEAN NOT NULL DEFAULT FALSE
 );
+ALTER TABLE oauth_login_codes
+    ADD COLUMN IF NOT EXISTS onboarding_required BOOLEAN NOT NULL DEFAULT FALSE;
 CREATE INDEX IF NOT EXISTS oauth_login_codes_expiry ON oauth_login_codes (expires_at);
 
 -- 2. User Profiles
@@ -32,8 +35,11 @@ CREATE TABLE IF NOT EXISTS user_profiles (
     budget_level VARCHAR(100),
     sizes TEXT,
     style_preferences TEXT,
+    onboarding_preferences JSONB NOT NULL DEFAULT '{}'::jsonb,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+ALTER TABLE user_profiles
+    ADD COLUMN IF NOT EXISTS onboarding_preferences JSONB NOT NULL DEFAULT '{}'::jsonb;
 
 -- 3. Uploads
 CREATE TABLE IF NOT EXISTS uploads (

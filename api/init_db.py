@@ -39,9 +39,14 @@ def init_db():
         CREATE TABLE IF NOT EXISTS oauth_login_codes (
             code_hash CHAR(64) PRIMARY KEY,
             user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-            expires_at TIMESTAMPTZ NOT NULL
+            expires_at TIMESTAMPTZ NOT NULL,
+            onboarding_required BOOLEAN NOT NULL DEFAULT FALSE
         )
     ''')
+    cur.execute(
+        """ALTER TABLE oauth_login_codes
+           ADD COLUMN IF NOT EXISTS onboarding_required BOOLEAN NOT NULL DEFAULT FALSE"""
+    )
     cur.execute(
         "CREATE INDEX IF NOT EXISTS oauth_login_codes_expiry ON oauth_login_codes (expires_at)"
     )
@@ -69,9 +74,14 @@ def init_db():
             budget_level VARCHAR(100),
             sizes TEXT,
             style_preferences TEXT,
+            onboarding_preferences JSONB NOT NULL DEFAULT '{}'::jsonb,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
+    cur.execute(
+        """ALTER TABLE user_profiles
+           ADD COLUMN IF NOT EXISTS onboarding_preferences JSONB NOT NULL DEFAULT '{}'::jsonb"""
+    )
 
     cur.execute('''
         CREATE TABLE IF NOT EXISTS search_logs (

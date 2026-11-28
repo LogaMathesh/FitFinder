@@ -3,13 +3,15 @@ import './Profile.css';
 import { apiFetch } from '../lib/api';
 import { BadgeIndianRupee, Ruler, Save, Shirt, Sparkles, User } from 'lucide-react';
 import { Helmet } from "react-helmet-async";
+import { EMPTY_PREFERENCES, PREFERENCE_QUESTIONS } from '../lib/preferences';
 
 export default function Profile({ username }) {
   const [profile, setProfile] = useState({
     gender: '',
     budget_level: '',
     sizes: '',
-    style_preferences: ''
+    style_preferences: '',
+    preferences: EMPTY_PREFERENCES,
   });
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
@@ -36,6 +38,19 @@ export default function Profile({ username }) {
     setProfile({
       ...profile,
       [e.target.name]: e.target.value
+    });
+  };
+
+  const handlePreferenceToggle = (field, option) => {
+    setProfile((current) => {
+      const selected = current.preferences?.[field] || [];
+      const next = selected.includes(option)
+        ? selected.filter((item) => item !== option)
+        : selected.length < 5 ? [...selected, option] : selected;
+      return {
+        ...current,
+        preferences: { ...current.preferences, [field]: next },
+      };
     });
   };
 
@@ -155,6 +170,40 @@ export default function Profile({ username }) {
                 placeholder="Minimal, formal, streetwear"
               />
             </div>
+          </div>
+
+          <div className="profile-preference-groups">
+            <div className="profile-preference-intro">
+              <span className="profile-kicker">Personal style</span>
+              <p>Update your fashion preferences and outfit goals anytime.</p>
+            </div>
+            {PREFERENCE_QUESTIONS.map((question) => {
+              const selected = profile.preferences?.[question.field] || [];
+              return (
+                <fieldset className="profile-preference-group" key={question.field}>
+                  <legend>{question.title}</legend>
+                  <p>{question.description}</p>
+                  <div className="profile-preference-options">
+                    {question.options.map((option) => {
+                      const isSelected = selected.includes(option);
+                      const isAtLimit = selected.length >= 5 && !isSelected;
+                      return (
+                        <button
+                          key={option}
+                          type="button"
+                          className={`profile-preference-option${isSelected ? ' selected' : ''}`}
+                          onClick={() => handlePreferenceToggle(question.field, option)}
+                          aria-pressed={isSelected}
+                          disabled={isAtLimit}
+                        >
+                          {option}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </fieldset>
+              );
+            })}
           </div>
 
           <button type="submit" disabled={loading} className="profile-btn">

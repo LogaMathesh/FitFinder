@@ -87,6 +87,7 @@ def test_signup_returns_token_for_new_user(client, db):
     assert res.status_code == 200
     body = res.get_json()
     assert body["user"] == "carol"
+    assert body["onboarding_required"] is True
     claims = decode(body["token"])
     assert claims["username"] == "carol"
     assert claims["sub"] == str(db.query("SELECT id FROM users WHERE username = 'carol'")[0][0])
@@ -263,6 +264,7 @@ def test_google_callback_creates_account_and_exchanges_single_use_code(
     body = exchange.get_json()
     claims = decode(body["token"])
     assert body["user"] == "new.user@example.com"
+    assert body["onboarding_required"] is True
     assert claims["sub"] == str(db.query("SELECT id FROM users")[0][0])
     assert claims["username"] == body["user"]
     assert exchange.headers["Cache-Control"] == "no-store"
@@ -290,6 +292,7 @@ def test_google_callback_links_existing_username_email_account(
     exchange = client.post("/auth/google/exchange", json={"code": code})
 
     assert exchange.status_code == 200
+    assert exchange.get_json()["onboarding_required"] is False
     assert decode(exchange.get_json()["token"])["sub"] == str(user_id)
     assert db.query("SELECT email, google_sub FROM users WHERE id = %s", (user_id,)) == [
         (email, "google-alice")

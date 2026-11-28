@@ -45,7 +45,11 @@ export default function Signup({ onSignup }) {
       .then(async (res) => {
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Google signup failed');
-        onSignup({ user: data.user, token: data.token });
+        onSignup({
+          user: data.user,
+          token: data.token,
+          onboardingRequired: data.onboarding_required === true,
+        });
       })
       .catch(() => setMessage('Google signup failed. Please try again.'))
       .finally(() => setIsLoading(false));
@@ -65,7 +69,11 @@ export default function Signup({ onSignup }) {
       const data = await res.json();
       if (res.ok) {
         setMessage('Signup successful! Welcome aboard!');
-        setTimeout(() => onSignup({ user: data.user, token: data.token }), 1500);
+        setTimeout(() => onSignup({
+          user: data.user,
+          token: data.token,
+          onboardingRequired: data.onboarding_required === true,
+        }), 1500);
       } else {
         setMessage(data.error || 'Signup failed');
       }

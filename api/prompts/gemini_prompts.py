@@ -97,6 +97,7 @@ Rules:
 - The query must include 4-6 compatible clothing categories across at least 3 clusters when the current idea is broad, such as party, rooftop, date, brunch, vacation, wedding, office, or formal.
 - Use the Current Occasion Expansion as the main source of categories and clusters.
 - Treat cluster_priority penalties as hard guidance. If ethnic is penalized, ethnic history is weak context only.
+- Treat onboarding answers only as self-reported fashion preferences; do not infer personality or psychological traits from them.
 - Use an OR-separated query style so Google Shopping can return varied product categories.
 - Good query style: blazer OR satin shirt OR bomber jacket OR tailored trousers OR modern fusion
 - Bad query style: blazer satin shirt bomber jacket kurta

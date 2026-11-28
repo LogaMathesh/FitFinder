@@ -22,6 +22,7 @@ import Home from './pages/Home';
 import About from './pages/About';
 import IdeaSearch from './pages/IdeaSearch';
 import Profile from './pages/Profile';
+import PreferenceOnboarding from './pages/PreferenceOnboarding';
 import Chatbot from './components/Chatbot';
 
 function App() {
@@ -44,9 +45,12 @@ function App() {
     return () => window.removeEventListener(UNAUTHORIZED_EVENT, handleUnauthorized);
   }, [navigate]);
 
-  const handleLogin = ({ user: username, token }) => {
+  const handleLogin = ({ user: username, token, onboardingRequired = false }) => {
     saveSession({ token, user: username });
     setUser(username);
+    if (onboardingRequired) {
+      navigate('/onboarding', { replace: true });
+    }
   };
 
   const handleLogout = () => {
@@ -124,6 +128,20 @@ function App() {
               element={
                 user ? (
                   <Profile username={user} />
+                ) : (
+                  <Navigate to="/login" />
+                )
+              }
+            />
+
+            <Route
+              path="/onboarding"
+              element={
+                user ? (
+                  <PreferenceOnboarding
+                    onComplete={() => navigate('/', { replace: true })}
+                    onSkip={() => navigate('/', { replace: true })}
+                  />
                 ) : (
                   <Navigate to="/login" />
                 )

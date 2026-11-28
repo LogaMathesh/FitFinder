@@ -80,7 +80,7 @@ def _frontend_oauth_redirect(destination=None, **fragment_values):
     return response
 
 
-def _create_oauth_code(user_id):
+def _create_oauth_code(user_id, onboarding_required=False):
     code = secrets.token_urlsafe(32)
     code_hash = hashlib.sha256(code.encode("utf-8")).hexdigest()
     expires_at = datetime.now(timezone.utc) + OAUTH_CODE_LIFETIME
@@ -90,9 +90,10 @@ def _create_oauth_code(user_id):
         with conn.cursor() as cur:
             cur.execute("DELETE FROM oauth_login_codes WHERE expires_at <= now()")
             cur.execute(
-                """INSERT INTO oauth_login_codes (code_hash, user_id, expires_at)
-                   VALUES (%s, %s, %s)""",
-                (code_hash, user_id, expires_at),
+                """INSERT INTO oauth_login_codes
+                   (code_hash, user_id, expires_at, onboarding_required)
+                   VALUES (%s, %s, %s, %s)""",
+                (code_hash, user_id, expires_at, onboarding_required),
             )
         conn.commit()
     except Exception:
@@ -116,7 +117,7 @@ def _resolve_google_user(sub, email):
             linked_user = cur.fetchone()
             if linked_user:
                 conn.commit()
-                return linked_user
+                return linked_user, False
 
             cur.execute(
                 """SELECT id, username, google_sub
@@ -146,7 +147,7 @@ def _resolve_google_user(sub, email):
                     conn.rollback()
                     return None
                 conn.commit()
-                return linked_user
+                return linked_user, False
 
             if len(email) > USERNAME_MAX_LENGTH:
                 conn.rollback()
@@ -159,7 +160,7 @@ def _resolve_google_user(sub, email):
             )
             created_user = cur.fetchone()
         conn.commit()
-        return created_user
+        return created_user, True
     except psycopg.errors.UniqueViolation:
         conn.rollback()
         return None
@@ -209,6 +210,7 @@ def signup():
             "user": username,
             "token": create_access_token(user_id, username),
             "expires_in": token_lifetime_seconds(),
+            "onboarding_required": True,
         }), 200
     except psycopg.errors.UniqueViolation:
         conn.rollback()
@@ -312,10 +314,11 @@ def google_callback():
     if len(email) > USERNAME_MAX_LENGTH:
         return _frontend_oauth_redirect(oauth_error="account_conflict")
     try:
-        user = _resolve_google_user(sub.strip(), email)
-        if not user:
+        resolved_user = _resolve_google_user(sub.strip(), email)
+        if not resolved_user:
             return _frontend_oauth_redirect(oauth_error="account_conflict")
-        code = _create_oauth_code(user[0])
+        user, onboarding_required = resolved_user
+        code = _create_oauth_code(user[0], onboarding_required)
     except psycopg.Error:
         return _frontend_oauth_redirect(oauth_error="server_error")
 
@@ -337,14 +340,14 @@ def exchange_google_code():
             cur.execute(
                 """DELETE FROM oauth_login_codes
                    WHERE code_hash = %s AND expires_at > now()
-                   RETURNING user_id""",
+                   RETURNING user_id, onboarding_required""",
                 (code_hash,),
             )
             result = cur.fetchone()
             if not result:
                 conn.rollback()
                 return jsonify({"error": "Invalid or expired Google login code"}), 400
-            user_id = result[0]
+            user_id, onboarding_required = result
             cur.execute("SELECT username FROM users WHERE id = %s", (user_id,))
             user = cur.fetchone()
             if not user:
@@ -357,6 +360,7 @@ def exchange_google_code():
             "user": username,
             "token": create_access_token(user_id, username),
             "expires_in": token_lifetime_seconds(),
+            "onboarding_required": onboarding_required,
         })
         response.headers["Cache-Control"] = "no-store"
         return response, 200
